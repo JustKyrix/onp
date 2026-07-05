@@ -1,0 +1,231 @@
+/* ============================================================
+   ONP — modern theme layer over Bootstrap 5.3
+   Principles (modern-web-dev): design tokens, fluid clamp type,
+   native nesting, logical properties, container queries, :has(),
+   :focus-visible, gap-only spacing (no margin between siblings).
+   Theming via Bootstrap --bs-* vars (kept unlayered so overrides win).
+   ============================================================ */
+
+/* ---------- 1. DESIGN TOKENS ---------- */
+:root, [data-bs-theme="dark"] {
+  /* palette */
+  --wine:#67003F; --rasp:#D52C5E; --rasp-lite:#ff5c8f; --pink:#ff9ec4; --pink-soft:#ffc9de;
+  --ink:#150410; --bg:#1e0a18; --panel:#2a1220; --panel-2:#341829; --ok:#6fe0a8; --warn:#ffcf8a;
+  --line:rgb(255 170 205 / .12); --line-2:rgb(255 170 205 / .24);
+  --soft:#fbeef4; --muted:#cba6bc;
+  --grad:linear-gradient(120deg,#67003F 0%,#D52C5E 62%,#ff6fa5 100%);
+  --grad-text:linear-gradient(110deg,#ff8fbe,#D52C5E);
+  --glow:0 10px 30px -10px rgb(213 44 94 / .55);
+
+  /* spacing scale (one source of truth) */
+  --space-1:.25rem; --space-2:.5rem; --space-3:.75rem; --space-4:1rem;
+  --space-5:1.5rem; --space-6:2rem; --space-7:3rem; --space-8:4.5rem;
+
+  /* radii */
+  --radius-sm:10px; --radius:14px; --radius-lg:20px; --radius-pill:999px;
+
+  /* fluid type — scales with viewport, no breakpoints */
+  --fs-hero:clamp(2.5rem, 1.7rem + 3.6vw, 4rem);
+  --fs-h2:clamp(1.6rem, 1.25rem + 1.6vw, 2.25rem);
+  --fs-h3:clamp(1.05rem, 1rem + .3vw, 1.2rem);
+  --fs-lead:clamp(1.05rem, 1rem + .45vw, 1.25rem);
+
+  --container:min(1240px, 100% - 2 * var(--space-5));
+
+  /* map Bootstrap tokens onto ours */
+  --bs-body-bg:var(--bg); --bs-body-color:var(--soft);
+  --bs-body-font-family:'Nunito',system-ui,sans-serif;
+  --bs-emphasis-color:#fff; --bs-border-color:var(--line);
+  --bs-link-color:var(--rasp-lite); --bs-link-hover-color:var(--pink);
+  --bs-border-radius:var(--radius); --bs-border-radius-lg:var(--radius-lg); --bs-border-radius-sm:var(--radius-sm);
+}
+
+/* ---------- 2. BASE ---------- */
+*, *::before, *::after { box-sizing:border-box; }
+
+body {
+  min-block-size:100dvh;                 /* dvh: correct on mobile */
+  display:flex; flex-direction:column;   /* footer sticks via margin-block-start:auto */
+  background:
+    radial-gradient(1000px 640px at 86% -6%, rgb(213 44 94 / .24), transparent 60%),
+    radial-gradient(860px 640px at -6% 8%, rgb(103 0 63 / .42), transparent 56%),
+    radial-gradient(680px 560px at 52% 116%, rgb(255 110 165 / .14), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+}
+
+h1, h2, h3, .font-display { font-family:'Fredoka','Nunito',sans-serif; font-weight:600; line-height:1.14; letter-spacing:-.01em; }
+h2 { font-size:var(--fs-h2); }
+h3 { font-size:var(--fs-h3); }
+.hero-title { font-size:var(--fs-hero); }
+.lead-text { font-size:var(--fs-lead); max-inline-size:34ch; }
+
+a { text-decoration:none; }
+code, .mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
+::selection { background:var(--rasp); color:#fff; }
+
+/* one visible, consistent focus ring everywhere */
+:where(a, button, input, textarea, summary, .primary-button, .secondary-button, .accent-button):focus-visible {
+  outline:2px solid var(--pink); outline-offset:2px; border-radius:var(--radius-sm);
+}
+
+/* ---------- 3. LAYOUT HELPERS ---------- */
+.container-xl { max-inline-size:1240px; }
+.shell { inline-size:var(--container); margin-inline:auto; }
+.measure { max-inline-size:34ch; }
+.narrow  { max-inline-size:620px; margin-inline:auto; }
+
+/* ---------- 4. NAV ---------- */
+.nav-link-soft { color:var(--muted); font-weight:700; font-size:.96rem;
+  &:hover { color:var(--pink); } }
+.brand-logo { display:block; }
+
+.eyebrow { display:inline-flex; align-items:center; gap:var(--space-2); color:var(--pink);
+  font-weight:800; font-size:.76rem; letter-spacing:.16em; text-transform:uppercase; }
+
+/* ---------- 5. THE 3 BUTTONS ---------- */
+.primary-button, .secondary-button, .accent-button {
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2);
+  font-family:'Fredoka',sans-serif; font-weight:600; font-size:1rem; line-height:1;
+  padding-block:.72rem; padding-inline:1.4rem; border-radius:var(--radius-pill);
+  border:1px solid transparent; cursor:pointer; text-decoration:none; white-space:nowrap;
+  transition:transform .1s, box-shadow .22s, filter .2s, background .2s, border-color .2s;
+
+  &.btn-sm { padding-block:.5rem; padding-inline:1.05rem; font-size:.88rem; }
+  &.copied { background:var(--ok); color:#08281a; border-color:transparent; }
+}
+.primary-button { background:var(--grad); color:#fff; box-shadow:var(--glow);
+  &:hover { color:#fff; transform:translateY(-2px); filter:brightness(1.07); box-shadow:0 16px 40px -10px rgb(213 44 94 / .7); } }
+.secondary-button { background:var(--panel); color:var(--soft); border-color:var(--line-2);
+  &:hover { color:#fff; border-color:var(--pink); } }
+.accent-button { background:var(--rasp); color:#fff;
+  &:hover { color:#fff; transform:translatey(-2px); filter:brightness(1.08); } }
+
+/* ---------- 6. SURFACES ---------- */
+.card {
+  --bs-card-bg:var(--panel); --bs-card-border-color:var(--line); --bs-card-cap-bg:transparent;
+  background:linear-gradient(180deg, var(--panel), var(--panel) 70%, var(--panel-2));
+  box-shadow:0 20px 50px -30px rgb(0 0 0 / .7);
+  container-type:inline-size;            /* enable container queries for children */
+}
+
+.pill-tag { display:inline-flex; align-items:center; justify-content:center; text-align:center;
+  padding-block:5px; padding-inline:10px; font-size:.68rem; font-weight:800; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--pink); background:rgb(255 158 196 / .1);
+  border:1px solid rgb(255 158 196 / .3); border-radius:var(--radius-pill); line-height:1; }
+
+.status { display:inline-flex; align-items:center; gap:var(--space-2); font-size:.86rem; font-weight:800;
+  padding-block:6px; padding-inline:14px; border-radius:var(--radius-pill); border:1px solid var(--line);
+  & .dot { inline-size:9px; block-size:9px; border-radius:50%; }
+  &.on { color:var(--ok); border-color:rgb(111 224 168 / .4); & .dot { background:var(--ok); box-shadow:0 0 10px var(--ok); } }
+  &.off { color:var(--warn); border-color:rgb(255 207 138 / .42); & .dot { background:var(--warn); } }
+}
+
+.feat-ico { inline-size:56px; block-size:56px; border-radius:16px; display:inline-flex;
+  align-items:center; justify-content:center; line-height:1; font-size:1.5rem; color:var(--pink);
+  background:var(--panel-2); border:1px solid var(--line-2); box-shadow:0 8px 22px -10px rgb(213 44 94 / .4); }
+
+.step-n { inline-size:46px; block-size:46px; border-radius:50%; flex:0 0 auto; display:inline-flex;
+  align-items:center; justify-content:center; font-family:'Fredoka',sans-serif; font-weight:600;
+  font-size:1.15rem; color:#fff; background:var(--grad); box-shadow:var(--glow); }
+
+/* ---------- 7. CHAT PREVIEW + BEATMAP ---------- */
+.chat {
+  background:var(--ink); border:1px solid var(--line); border-radius:var(--radius-lg);
+  box-shadow:0 30px 70px -28px rgb(0 0 0 / .75); container-type:inline-size;
+  & .bar { border-block-end:1px solid var(--line);
+    & i.dot { inline-size:11px; block-size:11px; border-radius:50%; background:#43263a; display:inline-block; }
+    & a { color:var(--muted); font-size:.78rem; font-weight:700; &:hover { color:var(--pink); } } }
+  & .msg { font-size:.95rem; line-height:1.5; }
+  & .u { font-weight:800; &.self { color:#8ab4ff; } &.bot { color:var(--ok); } }
+  & .link { color:var(--rasp-lite); word-break:break-all; }
+  & .notes { color:var(--pink); }
+}
+.mod-badge { display:inline-flex; inline-size:20px; block-size:20px; border-radius:5px; background:#00ad03;
+  color:#fff; align-items:center; justify-content:center; padding:3px; flex:0 0 auto; margin-block-start:1px;
+  & svg { inline-size:100%; block-size:100%; display:block; } }
+
+.np-star { inline-size:60px; block-size:60px; border-radius:50%; flex:0 0 auto; text-align:center;
+  background:radial-gradient(circle at 50% 30%, #3a1c2a, #180b12); border:2.5px solid var(--rasp-lite);
+  color:var(--pink); font-family:'Fredoka',sans-serif; font-weight:600;
+  & .num { font-size:1.1rem; line-height:1; } & .lbl { font-size:.54rem; letter-spacing:.1em; color:var(--rasp-lite); } }
+.chip { font-size:.72rem; font-weight:800; padding-block:3px; padding-inline:10px; border-radius:var(--radius-pill);
+  background:rgb(255 255 255 / .04); color:var(--soft); border:1px solid var(--line);
+  &.diff { color:var(--pink); border-color:rgb(255 158 196 / .4); }
+  &.mods { color:var(--warn); border-color:rgb(255 207 138 / .34); } }
+
+/* container query: tighten the beatmap card in narrow containers */
+@container (max-width: 340px) {
+  .np-title { font-size:.95rem; }
+  .np-star { inline-size:52px; block-size:52px; }
+}
+
+/* ---------- 8. CONTACT ---------- */
+.contact {
+  background:var(--panel); border:1px solid var(--line); border-radius:16px;
+  transition:border-color .2s, transform .1s;
+  &:hover { border-color:var(--pink); transform:translateY(-2px); }
+  & .ico { inline-size:44px; block-size:44px; border-radius:12px; flex:0 0 auto; display:inline-flex;
+    align-items:center; justify-content:center; line-height:1; font-size:1.25rem; color:var(--pink);
+    background:var(--panel-2); border:1px solid var(--line-2); }
+  & .l { font-family:'Fredoka',sans-serif; font-weight:600; color:var(--soft); }
+  & .s { font-size:.84rem; color:var(--muted); word-break:break-all; }
+}
+
+/* ---------- 9. CODE / TOKENS ---------- */
+.token { background:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm); word-break:break-all;
+  font-family:'JetBrains Mono',monospace; font-size:.9rem; color:#f3e2ec; transition:filter .18s;
+  &.blurred { filter:blur(7px); user-select:none; } }
+.cmd-code { color:var(--rasp-lite); font-weight:700; background:var(--ink); padding-block:2px; padding-inline:9px; border-radius:8px; }
+.who-tag { font-size:.76rem; color:var(--muted); border:1px solid var(--line); border-radius:var(--radius-pill);
+  padding-block:2px; padding-inline:12px; white-space:nowrap; }
+.small-note { font-size:.85rem; }
+.body-sm { font-size:.94rem; }
+
+/* ---------- 10. FORMS ---------- */
+textarea.form-control, input.form-control {
+  background:var(--ink); border-color:var(--line-2); color:var(--soft);
+  font-family:'JetBrains Mono',monospace; font-size:.9rem;
+  &:focus { background:var(--ink); color:#fff; border-color:var(--pink); box-shadow:0 0 0 3px rgb(255 158 196 / .18); } }
+.ph { font-family:'JetBrains Mono',monospace; font-size:.78rem; background:rgb(255 255 255 / .04);
+  border:1px solid var(--line); color:var(--soft); border-radius:8px; padding-block:3px; padding-inline:9px; cursor:pointer;
+  &:hover { border-color:var(--pink); color:var(--pink); } }
+.form-check-input:checked { background-color:var(--rasp); border-color:var(--rasp); }
+/* :has() — highlight a field wrapper when its control is focused, no JS */
+.field-group:has(:focus) .field-label { color:var(--pink); }
+
+/* ---------- 11. ACCORDION (Bootstrap, themed via vars) ---------- */
+.accordion {
+  --bs-accordion-bg:transparent; --bs-accordion-border-color:var(--line); --bs-accordion-border-radius:var(--radius-lg);
+  --bs-accordion-color:var(--soft); --bs-accordion-btn-color:var(--soft); --bs-accordion-btn-bg:var(--panel);
+  --bs-accordion-active-bg:var(--panel); --bs-accordion-active-color:var(--pink);
+  --bs-accordion-btn-focus-box-shadow:0 0 0 3px rgb(255 158 196 / .18);
+  & .accordion-button { font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.1rem; }
+  & .accordion-item { background:var(--panel); }
+}
+
+/* ---------- 12. MISC ---------- */
+.flash { background:rgb(111 224 168 / .12); border:1px solid rgb(111 224 168 / .4);
+  color:var(--ok); border-radius:var(--radius); padding-block:11px; padding-inline:16px; font-weight:700; }
+.spinner { inline-size:20px; block-size:20px; border-radius:50%; flex:0 0 auto;
+  border:2.5px solid var(--line-2); border-top-color:var(--pink); animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+kbd { background:var(--ink); border:1px solid var(--line-2); border-block-end-width:2px; border-radius:7px;
+  padding-block:1px; padding-inline:8px; font-family:'JetBrains Mono',monospace; font-size:.82rem; color:#fff; }
+.mod-cmd { background:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm);
+  & code { color:var(--rasp-lite); font-family:'JetBrains Mono',monospace; font-size:1rem; } }
+
+/* ---------- 13. FOOTER ---------- */
+.site-foot { border-block-start:1px solid var(--line); margin-block-start:auto;
+  padding-block:var(--space-7) var(--space-8);
+  & .made { font-family:'Fredoka',sans-serif; color:var(--soft); }
+  & .foot-links a { color:var(--muted); font-size:.88rem; &:hover { color:var(--pink); } } }
+
+@media (prefers-reduced-motion: reduce) { .spinner { animation:none; } *, *::before, *::after { transition:none !important; } }
+
+/* extra layout helpers */
+.narrow-lg { max-inline-size:820px; margin-inline:auto; }
+.danger-card { border-color:rgb(213 44 94 / .28); }
+
+/* keep icon glyphs perfectly centered in round/square badges */
+.feat-ico > i, .contact .ico > i { line-height:1; display:block; }

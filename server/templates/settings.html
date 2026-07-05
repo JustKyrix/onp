@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Settings — ONP{% endblock %}
+{% block body %}
+<main class="container-xl py-4">
+  <section class="narrow-lg d-flex flex-column gap-3">
+    <div class="d-flex flex-column gap-1">
+      <span class="eyebrow"><i class="bi bi-stars"></i> settings</span>
+      <h2 class="m-0">Style your <code class="cmd-code">!np</code> <i class="bi bi-music-note-beamed text-accent"></i></h2>
+    </div>
+
+    <form method="post">
+      <div class="card p-4 d-flex flex-column gap-3">
+        <div class="field-group d-flex flex-column gap-2">
+          <label class="field-label fw-bold" for="np_template">Message template</label>
+          <textarea class="form-control" id="np_template" name="np_template" rows="3" oninput="renderPreview()">{{ row['np_template'] }}</textarea>
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+          <span class="text-muted-soft small-note">Click a placeholder to insert it:</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% for p in placeholders %}<span class="ph" onclick="insertPh('{{ p }}')">{{ '{' ~ p ~ '}' }}</span>{% endfor %}
+          </div>
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+          <span class="fw-bold">Live preview</span>
+          <div class="token p-2 mono" id="previewText"></div>
+        </div>
+
+        <div class="form-check d-flex align-items-center gap-2 m-0">
+          <input class="form-check-input m-0" type="checkbox" id="enabled" name="enabled" {{ 'checked' if row['enabled'] }}>
+          <label class="form-check-label fw-bold" for="enabled">Enable the <code class="cmd-code">!np</code> command</label>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="primary-button" type="submit"><i class="bi bi-check-lg"></i> Save changes</button>
+          <button class="secondary-button" type="button" onclick="resetDefault()"><i class="bi bi-arrow-counterclockwise"></i> Reset to default</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+  const DEFAULT = {{ default_template | tojson }};
+  const SAMPLE = { artist:"Camellia", title:"Ghost", diff:"Insane", sr:"6.42", ar:"9.2",
+    cs:"4", od:"8.5", hp:"5", mods:"HDDT", bpm:"175", creator:"Sotarks", id:"1234567",
+    url:"https://osu.ppy.sh/b/1234567" };
+  const box = document.getElementById('np_template');
+  function fill(t){ return t.replace(/\{(\w+)\}/g, (m,k)=> k in SAMPLE ? SAMPLE[k] : m); }
+  function renderPreview(){ document.getElementById('previewText').textContent = fill(box.value) || '—'; }
+  function insertPh(n){ const tok='{'+n+'}', s=box.selectionStart, e=box.selectionEnd;
+    box.value=box.value.slice(0,s)+tok+box.value.slice(e); box.focus();
+    box.selectionStart=box.selectionEnd=s+tok.length; renderPreview(); }
+  function resetDefault(){ box.value=DEFAULT; renderPreview(); }
+  renderPreview();
+</script>
+{% endblock %}

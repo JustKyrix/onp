@@ -1,0 +1,4 @@
+flask
+requests
+twitchio>=2,<3
+aiohttp

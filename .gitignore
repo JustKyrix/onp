@@ -1,0 +1,35 @@
+# ── secrets — NEVER commit these ──────────────────────────
+.env
+.env.*
+.bot_tokens.json
+*.pem
+*.key
+
+# ── database (holds user tokens) ──────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# ── build / packaging artifacts ───────────────────────────
+build/
+dist/
+*.spec
+
+# ── editor / OS cruft ─────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── logs ──────────────────────────────────────────────────
+*.log

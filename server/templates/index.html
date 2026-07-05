@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block body %}
+<main class="container-xl d-flex flex-column gap-5 py-4">
+
+  <!-- HERO -->
+  <header class="row g-5 align-items-center py-4 py-lg-5">
+    <div class="col-lg-6 d-flex flex-column gap-4">
+      <div class="d-flex flex-column gap-3">
+        <span class="eyebrow"><i class="bi bi-stars"></i>Twitch bot for osu!</span>
+        <h1 class="hero-title m-0">Your osu! map,<br>in chat, on <span class="g">!np</span> <i class="bi bi-music-note-beamed text-accent"></i></h1>
+        <p class="lead-text text-muted-soft m-0">Link your osu! account and ONP drops whatever you're playing into your Twitch chat the second a viewer asks. No downloads, just log in and go.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {% if logged_in %}
+          <a href="{{ url_for('dashboard') }}" class="primary-button">Go to dashboard <i class="bi bi-arrow-right"></i></a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="primary-button"><i class="bi bi-twitch"></i> Log in with Twitch</a>
+        {% endif %}
+        <a href="#how" class="secondary-button">How it works</a>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="chat p-3">
+        <div class="bar d-flex align-items-center gap-2 pb-2 mb-2">
+          <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <a href="https://www.twitch.tv/kyarixu" target="_blank" rel="noopener" class="ms-auto">#kyarixu</a>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          <p class="msg m-0"><span class="u self">kyarixu</span>: what map is this?</p>
+          <p class="msg m-0"><span class="u self">kyarixu</span>: !np</p>
+          <p class="msg m-0 d-flex align-items-start gap-2">
+            <span class="mod-badge" aria-label="moderator">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>
+                <line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/>
+              </svg>
+            </span>
+            <span><span class="u bot">halflifebot</span>:
+              <i class="bi bi-music-note-beamed notes"></i>
+              M2U - Gypsy Tronic [Extra] | 7.38 | AR:9.5 CS:4 OD:7 HP:5 | Mods: None |
+              <a class="link" href="https://osu.ppy.sh/beatmaps/1281015" target="_blank" rel="noopener">https://osu.ppy.sh/beatmaps/1281015</a>
+            </span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- FEATURES -->
+  <section id="features" class="d-flex flex-column gap-4">
+    <div class="d-flex flex-column align-items-center text-center gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> what it does</span>
+      <h2 class="m-0">Everything you need, nothing you don't</h2>
+    </div>
+    <div class="row g-3">
+      {% set feats = [
+        ('bi-lightning-charge-fill','Instant setup','Log in, link osu!, done. !np works right away — no app to download.'),
+        ('bi-palette-fill','Fully customizable','Decide exactly what !np prints — fields, order, emojis, all of it.'),
+        ('bi-robot','Just mod it','Add the bot as a mod and it auto-joins your channel in seconds.'),
+        ('bi-music-note-beamed','Live mode','Want the exact map mid-run? Run the optional agent for real-time data.'),
+        ('bi-shield-lock-fill','Yours only','osu! login proves the account is yours — nobody posts plays as you.'),
+        ('bi-heart-fill','Free & open','No ads, no paywall. Just a cute little bot for your community.') ] %}
+      {% for icon, title, desc in feats %}
+      <div class="col-md-6 col-lg-4">
+        <article class="card h-100 p-4 text-center d-flex flex-column align-items-center gap-3">
+          <span class="feat-ico"><i class="bi {{ icon }}"></i></span>
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0">{{ title }}</h3>
+            <p class="text-muted-soft body-sm m-0">{{ desc }}</p>
+          </div>
+        </article>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" class="d-flex flex-column gap-4">
+    <div class="d-flex flex-column align-items-center gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> how it works</span>
+      <h2 class="m-0">Three steps &amp; you're live</h2>
+    </div>
+    <ol class="d-flex flex-column gap-3 list-unstyled m-0">
+      {% set steps = [
+        ('Mod the bot','Type /mod ' ~ bot_username ~ ' in your Twitch chat. It auto-joins channels it is modded in.'),
+        ('Log in & link osu!','Sign in with Twitch, then link your osu! account on the dashboard. That is the whole setup.'),
+        ('Type !np','Viewers ask, the bot answers with your latest map. Style the output however you like.') ] %}
+      {% for title, desc in steps %}
+      <li class="card p-4 d-flex gap-3">
+        <span class="step-n">{{ loop.index }}</span>
+        <div class="d-flex flex-column gap-1">
+          <h3 class="m-0">{{ title }}</h3>
+          <p class="text-muted-soft body-sm m-0">{{ desc }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <!-- COMMANDS -->
+  <section id="commands" class="d-flex flex-column gap-4">
+    <div class="d-flex flex-column align-items-center text-center gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> commands</span>
+      <h2 class="m-0">What viewers can type</h2>
+    </div>
+    <div class="card p-4 d-flex flex-column gap-3">
+      <div class="d-flex align-items-baseline gap-3 flex-wrap">
+        <code class="cmd-code">!np</code>
+        <span class="text-muted-soft flex-grow-1 body-sm">Your latest map — artist, title, difficulty, stars, mods, link.</span>
+        <span class="who-tag">anyone</span>
+      </div>
+      <div class="d-flex align-items-baseline gap-3 flex-wrap border-top pt-3">
+        <code class="cmd-code">!np help</code>
+        <span class="text-muted-soft flex-grow-1 body-sm">Points viewers to this page.</span>
+        <span class="who-tag">anyone</span>
+      </div>
+      <div class="d-flex align-items-baseline gap-3 flex-wrap border-top pt-3">
+        <code class="cmd-code">!np on / off</code>
+        <span class="text-muted-soft flex-grow-1 body-sm">Toggle the command on the fly.</span>
+        <span class="who-tag">you / mods</span>
+      </div>
+      <p class="text-muted-soft small-note m-0"><i class="bi bi-info-circle"></i> More commands coming soon ♪</p>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="d-flex flex-column gap-4">
+    <div class="d-flex flex-column align-items-center text-center gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> say hi</span>
+      <h2 class="m-0">Questions, ideas, bugs?</h2>
+      <p class="text-muted-soft m-0">Made by kyrix — reach out anytime <i class="bi bi-heart-fill text-accent"></i></p>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <a class="contact d-flex align-items-center gap-3 p-3 h-100" href="mailto:kyrix@artline-studio.de">
+          <span class="ico"><i class="bi bi-envelope-fill"></i></span>
+          <span class="d-flex flex-column"><span class="l">Email</span><span class="s">kyrix@artline-studio.de</span></span>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a class="contact d-flex align-items-center gap-3 p-3 h-100" href="https://osu.ppy.sh/users/17022968" target="_blank" rel="noopener">
+          <span class="ico"><i class="bi bi-record-circle"></i></span>
+          <span class="d-flex flex-column"><span class="l">osu! profile</span><span class="s">osu.ppy.sh/users/17022968</span></span>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a class="contact d-flex align-items-center gap-3 p-3 h-100" href="https://x.com/JKyrix" target="_blank" rel="noopener">
+          <span class="ico"><i class="bi bi-twitter-x"></i></span>
+          <span class="d-flex flex-column"><span class="l">Twitter / X</span><span class="s">@JKyrix</span></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+{% endblock %}
