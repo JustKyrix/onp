@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from flask import (Flask, request, redirect, session,
                    render_template, url_for, flash)
 import requests
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 # project root = the folder ABOVE this server/ folder (where .env lives)
@@ -50,6 +51,8 @@ PLACEHOLDERS = ['artist', 'title', 'diff', 'sr', 'ar', 'cs', 'od', 'hp',
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET', secrets.token_hex(16))
+# behind Plesk/nginx reverse proxy: trust X-Forwarded-* so Flask knows it's HTTPS
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 
 # ---------- database ----------
