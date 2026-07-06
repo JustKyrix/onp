@@ -43,8 +43,10 @@
 /* ---------- 2. BASE ---------- */
 *, *::before, *::after { box-sizing:border-box; }
 
+html { overflow-x:hidden; }            /* belt-and-suspenders: kill phantom x-scroll */
 body {
   min-block-size:100dvh;                 /* dvh: correct on mobile */
+  max-inline-size:100%; overflow-x:hidden;
   display:flex; flex-direction:column;   /* footer sticks via margin-block-start:auto */
   background:
     radial-gradient(1000px 640px at 86% -6%, rgb(213 44 94 / .24), transparent 60%),
@@ -136,7 +138,8 @@ code, .mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
   & .bar { border-block-end:1px solid var(--line);
     & i.dot { inline-size:11px; block-size:11px; border-radius:50%; background:#43263a; display:inline-block; }
     & a { color:var(--muted); font-size:.78rem; font-weight:700; &:hover { color:var(--pink); } } }
-  & .msg { font-size:.95rem; line-height:1.5; }
+  & .msg { font-size:.95rem; line-height:1.5; min-inline-size:0; }
+  & .msg > span { min-inline-size:0; overflow-wrap:anywhere; }
   & .u { font-weight:800; &.self { color:#8ab4ff; } &.bot { color:var(--ok); } }
   & .link { color:var(--rasp-lite); word-break:break-all; }
   & .notes { color:var(--pink); }
@@ -229,3 +232,6 @@ kbd { background:var(--ink); border:1px solid var(--line-2); border-block-end-wi
 
 /* keep icon glyphs perfectly centered in round/square badges */
 .feat-ico > i, .contact .ico > i { line-height:1; display:block; }
+
+/* non-interactive "coming soon" chip (reuses button look, but clearly inert) */
+.is-soon { opacity:.55; cursor:default; pointer-events:none; }
