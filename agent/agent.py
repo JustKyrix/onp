@@ -198,6 +198,13 @@ class Api:
     def load_interval(self):
         return load_config().get("poll_secs", POLL_SECS)
 
+    def set_token(self, token):
+        token = (token or "").strip()
+        self.worker.token = token
+        if token:
+            cfg = load_config(); cfg["token"] = token; save_config(cfg)
+        return {"ok": bool(token)}
+
     def _token(self):
         return self.worker.token or load_config().get("token", "")
 
@@ -344,6 +351,14 @@ HTML = r"""
     border-radius:10px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;}
   textarea:focus{outline:none;border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,158,196,.18);}
   .ctl-note{font-size:.76rem;color:var(--ok);margin-top:8px;min-height:1em;font-weight:700;}
+  .phhint{font-size:.74rem;color:var(--muted);margin:10px 0 6px;font-weight:700;}
+  .phrow{display:flex;flex-wrap:wrap;gap:6px;}
+  .ph{font-family:'JetBrains Mono',monospace;font-size:.74rem;background:rgba(255,255,255,.04);
+    border:1px solid var(--line);color:var(--soft);border-radius:8px;padding:3px 8px;cursor:pointer;transition:.15s;}
+  .ph:hover{border-color:var(--pink);color:var(--pink);}
+  .pvlabel{font-weight:800;font-size:.8rem;margin:12px 0 6px;}
+  .preview{background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    font-size:.8rem;color:#f3e2ec;word-break:break-word;line-height:1.5;}
   .switch{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto;}
   .switch input{opacity:0;width:0;height:0;}
   .slider{position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--line-2);
@@ -377,7 +392,7 @@ HTML = r"""
 
     <label for="tok">Pair token</label>
     <div class="tokrow">
-      <input id="tok" type="password" placeholder="paste from your ONP dashboard" spellcheck="false">
+      <input id="tok" type="password" placeholder="paste from your ONP dashboard" spellcheck="false" oninput="onTokenInput()">
       <button class="eye" id="eye" onclick="toggleEye()">Show</button>
     </div>
 
@@ -410,8 +425,12 @@ HTML = r"""
       <label class="switch"><input type="checkbox" id="enabled" onchange="saveEnabled()"><span class="slider"></span></label>
     </div>
     <label for="tpl" style="margin-top:14px;">!np output</label>
-    <textarea id="tpl" rows="2" spellcheck="false" placeholder="load your token to edit"></textarea>
-    <button class="btn ghost" id="saveTpl" onclick="saveTpl()" style="margin-top:10px;">Save output</button>
+    <textarea id="tpl" rows="3" spellcheck="false" placeholder="load your token to edit" oninput="renderPreview()"></textarea>
+    <div class="phhint">Click to insert a placeholder:</div>
+    <div class="phrow" id="phrow"></div>
+    <div class="pvlabel">Preview</div>
+    <div class="preview" id="tplPreview">&mdash;</div>
+    <button class="btn ghost" id="saveTpl" onclick="saveTpl()" style="margin-top:12px;">Save output</button>
     <div class="ctl-note" id="ctlNote"></div>
   </div>
 
@@ -481,6 +500,41 @@ HTML = r"""
     if(s.error){ return; }
     document.getElementById('enabled').checked = !!s.enabled;
     document.getElementById('tpl').value = s.np_template || '';
+    renderPreview();
+  }
+  const PLACEHOLDERS = ['artist','title','diff','sr','ar','cs','od','hp','mods','bpm','creator','id','url'];
+  const SAMPLE = {artist:'Camellia',title:'Ghost',diff:'Insane',sr:'6.42',ar:'9.2',cs:'4',
+    od:'8.5',hp:'5',mods:'HDDT',bpm:'175',creator:'Sotarks',id:'1234567',
+    url:'https://osu.ppy.sh/b/1234567'};
+  function buildChips(){
+    const row=document.getElementById('phrow');
+    row.innerHTML='';
+    PLACEHOLDERS.forEach(p=>{
+      const el=document.createElement('span');
+      el.className='ph'; el.textContent='{'+p+'}';
+      el.onclick=()=>insertPh(p);
+      row.appendChild(el);
+    });
+  }
+  function insertPh(name){
+    const box=document.getElementById('tpl'), tok='{'+name+'}';
+    const s=box.selectionStart, e=box.selectionEnd;
+    box.value=box.value.slice(0,s)+tok+box.value.slice(e);
+    box.focus(); box.selectionStart=box.selectionEnd=s+tok.length;
+    renderPreview();
+  }
+  function renderPreview(){
+    const t=document.getElementById('tpl').value;
+    const out=t.replace(/\{(\w+)\}/g,(m,k)=> k in SAMPLE ? SAMPLE[k] : m);
+    document.getElementById('tplPreview').textContent = out || '\u2014';
+  }
+
+  let tokTimer;
+  async function onTokenInput(){
+    const t=document.getElementById('tok').value.trim();
+    await pywebview.api.set_token(t);
+    clearTimeout(tokTimer);
+    if(t) tokTimer=setTimeout(loadSettings, 400);
   }
   async function saveEnabled(){
     const on=document.getElementById('enabled').checked;
@@ -512,10 +566,11 @@ HTML = r"""
 
   window.addEventListener('pywebviewready', async ()=>{
     const saved = await pywebview.api.load_token();
-    if(saved) document.getElementById('tok').value = saved;
+    if(saved){ document.getElementById('tok').value = saved; await pywebview.api.set_token(saved); }
     const iv = await pywebview.api.load_interval();
     document.getElementById('interval').value = iv;
     document.getElementById('ivalLabel').textContent = iv;
+    buildChips(); renderPreview();
     if(saved) loadSettings();
     setInterval(poll, 1000);
     poll();
