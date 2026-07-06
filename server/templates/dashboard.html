@@ -124,11 +124,12 @@
             <p class="text-muted-soft body-sm m-0">Instant mode (osu! link above) shows your <em>last</em> play. Want the exact map you're on <strong>mid-run</strong>, in real time? Run the little agent next to <a href="https://github.com/tosuapp/tosu" target="_blank" rel="noopener">tosu</a>. Most people don't need this.</p>
             <div class="d-flex flex-column gap-2">
               <span class="fw-bold body-sm">Your agent token</span>
-              <p class="text-muted-soft small-note m-0">Paste this into the agent. Keep it private.</p>
+              <p class="text-muted-soft small-note m-0">Click the token to copy it — it stays hidden. Keep it private.</p>
               <div class="d-flex align-items-center gap-2">
-                <code class="token blurred flex-grow-1 p-2" id="tok">{{ row['pair_token'] }}</code>
+                <code class="token blurred flex-grow-1 p-2 token-copy" id="tok" title="Click to copy" onclick="copyTok()">{{ row['pair_token'] }}</code>
                 <button class="secondary-button btn-sm" type="button" id="tokbtn" onclick="toggleTok()"><i class="bi bi-eye-fill"></i> Show</button>
               </div>
+              <span class="ctl-copied small-note" id="tokCopied" hidden><i class="bi bi-check-circle-fill"></i> Copied to clipboard</span>
             </div>
             <div class="d-flex flex-wrap gap-2">
               <a class="primary-button btn-sm" href="https://github.com/JustKyrix/onp/releases/latest" target="_blank" rel="noopener"><i class="bi bi-download"></i> Download agent</a>
@@ -158,6 +159,15 @@
       const t=document.getElementById('tok'), b=document.getElementById('tokbtn');
       const hidden=t.classList.toggle('blurred');
       b.innerHTML = hidden ? '<i class="bi bi-eye-fill"></i> Show' : '<i class="bi bi-eye-slash-fill"></i> Hide';
+    }
+    let tokCopiedTimer;
+    function copyTok(){
+      const t=document.getElementById('tok');
+      navigator.clipboard.writeText(t.textContent.trim());
+      const c=document.getElementById('tokCopied');
+      c.hidden=false;
+      clearTimeout(tokCopiedTimer);
+      tokCopiedTimer=setTimeout(()=>{ c.hidden=true; }, 2000);
     }
   </script>
 {% endif %}

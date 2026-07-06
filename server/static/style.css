@@ -235,3 +235,8 @@ kbd { background:var(--ink); border:1px solid var(--line-2); border-block-end-wi
 
 /* non-interactive "coming soon" chip (reuses button look, but clearly inert) */
 .is-soon { opacity:.55; cursor:default; pointer-events:none; }
+
+/* click-to-copy token (stays blurred while copying) */
+.token-copy { cursor:pointer; transition:border-color .15s; }
+.token-copy:hover { border-color:var(--pink); }
+.ctl-copied { color:var(--ok); font-weight:700; display:inline-flex; align-items:center; gap:6px; }
