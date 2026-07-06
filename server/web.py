@@ -4,7 +4,7 @@ import sqlite3
 from functools import wraps
 from urllib.parse import urlencode
 from flask import (Flask, request, redirect, session,
-                   render_template, url_for, flash)
+                   render_template, url_for, flash, Response)
 import requests
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -171,6 +171,39 @@ def unmod_bot(row):
 
 
 # ---------- routes ----------
+SITE_URL = 'https://onp.artline-studio.de'
+
+
+@app.route('/robots.txt')
+def robots():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /dashboard\n"
+        "Disallow: /settings\n"
+        "Disallow: /callback\n"
+        "Disallow: /osu/\n"
+        f"Sitemap: {SITE_URL}/sitemap.xml\n"
+    )
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    # only public, indexable pages
+    pages = ['/', '/#features', '/#how', '/#commands', '/#contact']
+    urls = ''.join(
+        f'  <url><loc>{SITE_URL}{p}</loc><changefreq>weekly</changefreq></url>\n'
+        for p in pages)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f'{urls}'
+        '</urlset>\n'
+    )
+    return Response(xml, mimetype='application/xml')
+
+
 @app.route('/')
 def index():
     return render_template('index.html', placeholders=PLACEHOLDERS)
