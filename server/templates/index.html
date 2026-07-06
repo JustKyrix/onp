@@ -124,6 +124,35 @@
     </div>
   </section>
 
+  <!-- FAQ (SEO) -->
+  <section id="faq" class="d-flex flex-column gap-4">
+    <div class="d-flex flex-column align-items-center text-center gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> faq</span>
+      <h2 class="m-0">osu! now playing bot for Twitch — FAQ</h2>
+    </div>
+    <div class="accordion" id="faqAcc">
+      {% set faqs = [
+        ('What is ONP?', 'ONP is a free osu! now playing bot for Twitch. When a viewer types !np in your chat, the bot instantly posts the osu! map you are currently playing — artist, title, difficulty, star rating, mods and a beatmap link.'),
+        ('How do I show my osu! map in Twitch chat?', 'Log in with Twitch, link your osu! account, and mod the bot in your channel. From then on, anyone can type !np and the bot shows your current osu! beatmap in chat automatically.'),
+        ('Do I need to download anything?', 'No. ONP reads your last play straight from your linked osu! account, so the !np command works with zero downloads and no setup. An optional agent (used with tosu) is only needed if you want the exact live map mid-run.'),
+        ('Is ONP free?', 'Yes, ONP is completely free — no ads, no paywall, no subscription. Just log in with Twitch, link osu!, and go.'),
+        ('What is the !np command?', 'The !np command is a Twitch chat command that displays the streamer current osu! map. Viewers type !np and the bot replies with the beatmap details and link, so nobody has to ask what map is this again.'),
+        ('Does it show the live map while I am playing?', 'Instant mode shows your most recent osu! play, which is enough for most streamers. If you want the exact map in real time while you are mid-run, you can run the optional agent alongside tosu.') ] %}
+      {% for q, a in faqs %}
+      <div class="accordion-item">
+        <h3 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ loop.index }}">
+            {{ q }}
+          </button>
+        </h3>
+        <div id="faq{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#faqAcc">
+          <div class="accordion-body text-muted-soft body-sm">{{ a }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
   <!-- CONTACT -->
   <section id="contact" class="d-flex flex-column gap-4">
     <div class="d-flex flex-column align-items-center text-center gap-2">
@@ -154,4 +183,30 @@
   </section>
 
 </main>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "ONP",
+      "description": "Free osu! now playing bot for Twitch. Viewers type !np to see the streamer's current osu! map — no download, no setup.",
+      "applicationCategory": "Twitch bot",
+      "operatingSystem": "Web",
+      "url": "https://onp.artline-studio.de/",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "What is ONP?", "acceptedAnswer": { "@type": "Answer", "text": "ONP is a free osu! now playing bot for Twitch. When a viewer types !np in your chat, the bot instantly posts the osu! map you are currently playing." } },
+        { "@type": "Question", "name": "How do I show my osu! map in Twitch chat?", "acceptedAnswer": { "@type": "Answer", "text": "Log in with Twitch, link your osu! account, and mod the bot in your channel. Then anyone can type !np and the bot shows your current osu! beatmap." } },
+        { "@type": "Question", "name": "Do I need to download anything?", "acceptedAnswer": { "@type": "Answer", "text": "No. ONP reads your last play from your linked osu! account, so !np works with zero downloads and no setup." } },
+        { "@type": "Question", "name": "Is ONP free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, ONP is completely free — no ads, no paywall, no subscription." } },
+        { "@type": "Question", "name": "What is the !np command?", "acceptedAnswer": { "@type": "Answer", "text": "The !np command is a Twitch chat command that displays the streamer's current osu! map with beatmap details and a link." } }
+      ]
+    }
+  ]
+}
+</script>
 {% endblock %}
