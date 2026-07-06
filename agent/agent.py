@@ -250,8 +250,17 @@ class Api:
         return {"w": w, "h": h}
 
     def hide(self):
-        # hide to tray; the tray icon's Show brings it back, Quit exits
+        # minimize to tray (still available from the tray menu)
         webview.windows[0].hide()
+
+    def quit(self):
+        # fully exit: stop the worker, destroy the window, kill the process
+        self.worker.stop()
+        try:
+            webview.windows[0].destroy()
+        except Exception:
+            pass
+        os._exit(0)
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +386,7 @@ HTML = r"""
     <div class="tb-drag pywebview-drag-region"><span class="ring-sm"></span> ONP Agent</div>
     <div class="tb-btns">
       <button class="tb-btn" onclick="pywebview.api.minimize()" title="Minimize">&#8211;</button>
-      <button class="tb-btn close" onclick="pywebview.api.hide()" title="Hide to tray">&#10005;</button>
+      <button class="tb-btn close" onclick="pywebview.api.quit()" title="Close">&#10005;</button>
     </div>
   </div>
   <div class="content">
