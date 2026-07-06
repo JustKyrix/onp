@@ -117,6 +117,14 @@ def set_enabled(channel, value):
     finally:
         conn.close()
 
+def set_template(channel, template):
+    conn = db()
+    try:
+        conn.execute('UPDATE channels SET np_template=? WHERE channel=?', (template, channel))
+        conn.commit()
+    finally:
+        conn.close()
+
 def load_pairs():
     with db() as conn:
         rows = conn.execute(
@@ -232,7 +240,7 @@ class Bot(commands.Bot):
         channel = ctx.channel.name
 
         if arg in ('help', '?'):
-            await ctx.send(f"📖 How to set up your own: {HELP_URL}")
+            await ctx.send(f"🎶 !np shows the streamer's current osu! map. Want it in your own chat? {HELP_URL}")
             return
 
         if arg in ('on', 'off'):
@@ -300,6 +308,8 @@ class Bot(commands.Bot):
     async def start_web(self):
         app = web.Application()
         app.router.add_post('/update', self.handle_update)
+        app.router.add_get('/api/settings', self.handle_get_settings)
+        app.router.add_post('/api/settings', self.handle_set_settings)
         runner = web.AppRunner(app)
         await runner.setup()
         await web.TCPSite(runner, '127.0.0.1', UPDATE_PORT).start()
@@ -315,6 +325,46 @@ class Bot(commands.Bot):
             return web.Response(status=400, text='bad json')
         STATE[channel] = {'np': data, 'ts': time.time()}
         return web.Response(text='ok')
+
+    def _auth(self, request):
+        """Resolve a pair token to its own channel (reload pairs if unknown)."""
+        token = request.headers.get('X-Pair-Token')
+        channel = PAIRS.get(token)
+        if channel is None:
+            PAIRS.update(load_pairs())
+            channel = PAIRS.get(token)
+        return channel
+
+    async def handle_get_settings(self, request):
+        channel = self._auth(request)
+        if not channel:
+            return web.json_response({'error': 'bad token'}, status=403)
+        s = get_settings(channel)
+        return web.json_response({
+            'channel': channel,
+            'enabled': bool(s['enabled']) if s else True,
+            'np_template': (s['np_template'] if s and s['np_template'] else ''),
+        })
+
+    async def handle_set_settings(self, request):
+        channel = self._auth(request)
+        if not channel:
+            return web.json_response({'error': 'bad token'}, status=403)
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({'error': 'bad json'}, status=400)
+        # a token may only ever change its OWN channel
+        if 'enabled' in data:
+            set_enabled(channel, 1 if data['enabled'] else 0)
+        if 'np_template' in data and isinstance(data['np_template'], str):
+            set_template(channel, data['np_template'][:400])
+        s = get_settings(channel)
+        return web.json_response({
+            'ok': True,
+            'enabled': bool(s['enabled']) if s else True,
+            'np_template': (s['np_template'] if s and s['np_template'] else ''),
+        })
 
 
 def main():

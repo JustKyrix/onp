@@ -23,7 +23,8 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
-UPDATE_URL = "https://onp.artline-studio.de/update"   # ONP bot's /update endpoint
+UPDATE_URL   = "https://onp.artline-studio.de/update"        # bot: live map push
+SETTINGS_URL = "https://onp.artline-studio.de/api/settings"   # bot: read/write settings
 TOSU_URL   = "http://127.0.0.1:24050/json"            # tosu (gosumemory-compatible)
 DASHBOARD  = "https://onp.artline-studio.de/dashboard"
 TUTORIAL   = "https://onp.artline-studio.de/#how"
@@ -57,7 +58,9 @@ class Worker:
     def __init__(self):
         self.thread = None
         self.running = False
+        self.paused = False
         self.token = ""
+        self.poll_secs = POLL_SECS
         self.status = {"state": "idle", "detail": "Not running.", "map": ""}
 
     def start(self, token):
@@ -77,14 +80,35 @@ class Worker:
 
     def stop(self):
         self.running = False
+        self.paused = False
         self.status = {"state": "idle", "detail": "Stopped.", "map": ""}
         return self.status
+
+    def toggle_pause(self):
+        if not self.running:
+            return self.status
+        self.paused = not self.paused
+        if self.paused:
+            self.status = {"state": "paused", "detail": "Paused - not sending.", "map": ""}
+        else:
+            self.status = {"state": "connecting", "detail": "Resuming...", "map": ""}
+        return self.status
+
+    def set_interval(self, secs):
+        try:
+            self.poll_secs = max(1, min(10, int(secs)))
+        except Exception:
+            pass
+        return {"poll_secs": self.poll_secs}
 
     def get_status(self):
         return self.status
 
     def _loop(self):
         while self.running:
+            if self.paused:
+                time.sleep(0.4)
+                continue
             try:
                 play = self._read_tosu()
                 if play is None:
@@ -106,9 +130,9 @@ class Worker:
                                "detail": "tosu not found. Is it running?", "map": ""}
             except Exception as e:
                 self.status = {"state": "error", "detail": f"Error: {e}", "map": ""}
-            for _ in range(POLL_SECS * 2):
-                if not self.running:
-                    return
+            for _ in range(self.poll_secs * 2):
+                if not self.running or self.paused:
+                    break
                 time.sleep(0.5)
 
     def _read_tosu(self):
@@ -164,6 +188,43 @@ class Api:
     def status(self):
         return self.worker.get_status()
 
+    def toggle_pause(self):
+        return self.worker.toggle_pause()
+
+    def set_interval(self, secs):
+        cfg = load_config(); cfg["poll_secs"] = int(secs); save_config(cfg)
+        return self.worker.set_interval(secs)
+
+    def load_interval(self):
+        return load_config().get("poll_secs", POLL_SECS)
+
+    def _token(self):
+        return self.worker.token or load_config().get("token", "")
+
+    def load_settings(self):
+        t = self._token()
+        if not t:
+            return {"error": "no token"}
+        try:
+            return requests.get(SETTINGS_URL, headers={"X-Pair-Token": t}, timeout=6).json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def save_settings(self, enabled, template):
+        t = self._token()
+        if not t:
+            return {"error": "no token"}
+        body = {}
+        if enabled is not None:
+            body["enabled"] = bool(enabled)
+        if template is not None:
+            body["np_template"] = template
+        try:
+            return requests.post(SETTINGS_URL, json=body,
+                                 headers={"X-Pair-Token": t}, timeout=6).json()
+        except Exception as e:
+            return {"error": str(e)}
+
     def open(self, which):
         url = {"dashboard": DASHBOARD, "tutorial": TUTORIAL, "tosu": TOSU_SITE}.get(which)
         if url:
@@ -172,6 +233,14 @@ class Api:
 
     def minimize(self):
         webview.windows[0].minimize()
+
+    def resize(self, w, h):
+        try:
+            w = max(360, int(w)); h = max(480, int(h))
+            webview.windows[0].resize(w, h)
+        except Exception:
+            pass
+        return {"w": w, "h": h}
 
     def hide(self):
         # hide to tray; the tray icon's Show brings it back, Quit exits
@@ -217,6 +286,10 @@ HTML = r"""
   .tb-btn:hover{background:rgba(255,255,255,.06);color:var(--soft);}
   .tb-btn.close:hover{background:var(--rasp);color:#fff;}
   .content{flex:1;padding:20px;overflow:auto;}
+  .grip{position:fixed;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:50;
+    background:
+      linear-gradient(135deg,transparent 46%,var(--line-2) 46%,var(--line-2) 54%,transparent 54%),
+      linear-gradient(135deg,transparent 66%,var(--line-2) 66%,var(--line-2) 74%,transparent 74%);}
   h1,.btn{font-family:'Fredoka',sans-serif;}
   .top{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
   .ring{width:22px;height:22px;border-radius:50%;background:var(--grad);
@@ -232,6 +305,7 @@ HTML = r"""
   .dot.live{background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 1.4s infinite;}
   .dot.connecting{background:var(--warn);animation:pulse 1.4s infinite;}
   .dot.no_tosu,.dot.error{background:var(--pink-lite);}
+  .dot.paused{background:var(--warn);}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
   .status .txt{font-size:.9rem;font-weight:700;}
   .status .map{font-size:.76rem;color:var(--muted);margin-top:2px;
@@ -250,6 +324,34 @@ HTML = r"""
   .btn:hover{transform:translateY(-1px);filter:brightness(1.07);}
   .btn.stop{background:var(--panel);border:1px solid var(--line-2);box-shadow:none;color:var(--soft);}
   .btn.stop:hover{border-color:var(--pink);filter:none;}
+  .btnrow{display:flex;gap:8px;margin-top:14px;}
+  .btnrow .btn{margin-top:0;flex:1;}
+  .btn.ghost{background:var(--panel);border:1px solid var(--line-2);box-shadow:none;color:var(--soft);}
+  .btn.ghost:hover{border-color:var(--pink);filter:none;}
+  .settings{margin-top:12px;padding:0;}
+  #ctlCard{margin-top:12px;}
+  .settings-head{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;cursor:pointer;font-family:'Fredoka',sans-serif;font-weight:600;font-size:.92rem;}
+  .settings-head .chev{color:var(--muted);transition:transform .2s;}
+  .settings-head.open .chev{transform:rotate(180deg);}
+  .settings-body{padding:0 16px 16px;}
+  .settings-body label{font-weight:700;font-size:.82rem;}
+  input[type=range]{width:100%;accent-color:var(--rasp);margin-top:8px;}
+  .ctl-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .ctl-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:.95rem;}
+  #ctlCard label{display:block;font-weight:800;font-size:.8rem;margin:0 0 6px;}
+  textarea{width:100%;background:var(--ink);border:1px solid var(--line-2);color:var(--soft);
+    border-radius:10px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;}
+  textarea:focus{outline:none;border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,158,196,.18);}
+  .ctl-note{font-size:.76rem;color:var(--ok);margin-top:8px;min-height:1em;font-weight:700;}
+  .switch{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:var(--panel-2);border:1px solid var(--line-2);
+    border-radius:999px;cursor:pointer;transition:.2s;}
+  .slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;
+    background:var(--muted);border-radius:50%;transition:.2s;}
+  .switch input:checked + .slider{background:var(--rasp);border-color:var(--rasp);}
+  .switch input:checked + .slider::before{transform:translateX(20px);background:#fff;}
   .hint{font-size:.74rem;color:var(--muted);margin:10px 2px 0;line-height:1.5;}
   .links{display:flex;gap:14px;justify-content:center;margin-top:16px;}
   .links a{color:var(--muted);font-size:.78rem;font-weight:700;text-decoration:none;cursor:pointer;}
@@ -264,11 +366,6 @@ HTML = r"""
     </div>
   </div>
   <div class="content">
-  <div class="top">
-    <span class="ring"></span>
-    <h1>ONP Agent<span class="sub">live osu! &#8594; twitch</span></h1>
-  </div>
-
   <div class="card">
     <div class="status">
       <span class="dot" id="dot"></span>
@@ -284,9 +381,38 @@ HTML = r"""
       <button class="eye" id="eye" onclick="toggleEye()">Show</button>
     </div>
 
-    <button class="btn" id="go" onclick="go()">Start</button>
+    <div class="btnrow">
+      <button class="btn" id="go" onclick="go()">Start</button>
+      <button class="btn ghost" id="pause" onclick="pause()" hidden>Pause</button>
+    </div>
     <p class="hint">Make sure <b>tosu</b> is running first. Your token lives only on
       this PC &mdash; find it in the dashboard under &ldquo;Live mode &amp; agent token.&rdquo;</p>
+  </div>
+
+  <div class="card settings">
+    <div class="settings-head" onclick="toggleSettings()">
+      <span>Settings</span>
+      <span class="chev" id="chev">&#9662;</span>
+    </div>
+    <div class="settings-body" id="settingsBody" hidden>
+      <label for="interval">Update every <b id="ivalLabel">2</b>s</label>
+      <input id="interval" type="range" min="1" max="10" value="2" oninput="setIval(this.value)">
+      <p class="hint" style="margin-top:8px;">How often the agent reads tosu and sends your map. Lower = snappier, higher = lighter.</p>
+    </div>
+  </div>
+
+  <div class="card" id="ctlCard">
+    <div class="ctl-row">
+      <div>
+        <div class="ctl-title">!np command</div>
+        <div class="hint" style="margin:2px 0 0;">Turn the command on or off in your chat.</div>
+      </div>
+      <label class="switch"><input type="checkbox" id="enabled" onchange="saveEnabled()"><span class="slider"></span></label>
+    </div>
+    <label for="tpl" style="margin-top:14px;">!np output</label>
+    <textarea id="tpl" rows="2" spellcheck="false" placeholder="load your token to edit"></textarea>
+    <button class="btn ghost" id="saveTpl" onclick="saveTpl()" style="margin-top:10px;">Save output</button>
+    <div class="ctl-note" id="ctlNote"></div>
   </div>
 
   <div class="links">
@@ -295,6 +421,7 @@ HTML = r"""
     <a onclick="pywebview.api.open('tosu')">Get tosu</a>
   </div>
   </div><!-- /.content -->
+  <div class="grip" id="grip" title="Drag to resize"></div>
 
 <script>
   let running = false;
@@ -310,26 +437,86 @@ HTML = r"""
     dot.className='dot '+s.state;
     document.getElementById('statusText').textContent=s.detail||'';
     document.getElementById('mapText').textContent=s.map||'';
-    const active = (s.state==='live'||s.state==='connecting'||s.state==='no_tosu');
-    const btn=document.getElementById('go');
+    const active = (s.state==='live'||s.state==='connecting'||s.state==='no_tosu'||s.state==='paused');
+    const btn=document.getElementById('go'), pb=document.getElementById('pause');
     btn.textContent = active ? 'Stop' : 'Start';
     btn.className = 'btn' + (active ? ' stop' : '');
+    pb.hidden = !active;
+    pb.textContent = (s.state==='paused') ? 'Resume' : 'Pause';
     running = active;
+  }
+
+  async function pause(){ paint(await pywebview.api.toggle_pause()); }
+
+  function toggleSettings(){
+    const b=document.getElementById('settingsBody'), h=document.querySelector('.settings-head');
+    b.hidden=!b.hidden; h.classList.toggle('open', !b.hidden);
+  }
+  let ivalTimer;
+  function setIval(v){
+    document.getElementById('ivalLabel').textContent=v;
+    clearTimeout(ivalTimer);
+    ivalTimer=setTimeout(()=>pywebview.api.set_interval(parseInt(v)), 300);
   }
 
   async function go(){
     if(running){ paint(await pywebview.api.stop()); return; }
     const t=document.getElementById('tok').value;
     paint(await pywebview.api.start(t));
+    loadSettings();
   }
 
   async function poll(){
     try{ paint(await pywebview.api.status()); }catch(e){}
   }
 
+  let noteTimer;
+  function note(msg, ok=true){
+    const n=document.getElementById('ctlNote');
+    n.textContent=msg; n.style.color = ok ? 'var(--ok)' : 'var(--pink-lite)';
+    clearTimeout(noteTimer); noteTimer=setTimeout(()=>n.textContent='', 2500);
+  }
+  async function loadSettings(){
+    const s = await pywebview.api.load_settings();
+    if(s.error){ return; }
+    document.getElementById('enabled').checked = !!s.enabled;
+    document.getElementById('tpl').value = s.np_template || '';
+  }
+  async function saveEnabled(){
+    const on=document.getElementById('enabled').checked;
+    const s=await pywebview.api.save_settings(on, null);
+    note(s.error ? 'Could not save' : (on?'Command enabled':'Command disabled'), !s.error);
+  }
+  async function saveTpl(){
+    const t=document.getElementById('tpl').value;
+    const s=await pywebview.api.save_settings(null, t);
+    note(s.error ? 'Could not save' : 'Output saved', !s.error);
+  }
+
+  (function(){
+    const grip=document.getElementById('grip');
+    let dragging=false, sx=0, sy=0, sw=0, sh=0, raf=null, pend=null;
+    grip.addEventListener('mousedown', e=>{
+      dragging=true; sx=e.screenX; sy=e.screenY; sw=window.innerWidth; sh=window.innerHeight;
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', e=>{
+      if(!dragging) return;
+      const w=Math.max(360, sw+(e.screenX-sx)), h=Math.max(480, sh+(e.screenY-sy));
+      pend=[w,h];
+      if(!raf) raf=requestAnimationFrame(()=>{ raf=null;
+        if(pend){ pywebview.api.resize(pend[0], pend[1]); pend=null; } });
+    });
+    window.addEventListener('mouseup', ()=>{ dragging=false; });
+  })();
+
   window.addEventListener('pywebviewready', async ()=>{
     const saved = await pywebview.api.load_token();
     if(saved) document.getElementById('tok').value = saved;
+    const iv = await pywebview.api.load_interval();
+    document.getElementById('interval').value = iv;
+    document.getElementById('ivalLabel').textContent = iv;
+    if(saved) loadSettings();
     setInterval(poll, 1000);
     poll();
   });
@@ -377,8 +564,9 @@ def main():
     api = Api(worker)
     window = webview.create_window(
         "ONP Agent", html=HTML, js_api=api,
-        width=420, height=580, resizable=False,
+        width=420, height=600, resizable=True,
         frameless=True, easy_drag=False,
+        min_size=(360, 480),
         background_color="#1e0a18",
     )
     start_tray(window)
