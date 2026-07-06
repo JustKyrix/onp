@@ -3,7 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}ONP — cute osu! now-playing for Twitch{% endblock %}</title>
+  <meta name="google-site-verification" content="_xpWYnZJO0KbUNcPg-TQWtpZt4imZw9n-S64sZwpQXo" />
+  <title>{% block title %}ONP — osu! now playing bot for Twitch (!np){% endblock %}</title>
+  <meta name="description" content="{% block description %}Free Twitch bot that shows your current osu! map when viewers type !np. Link your osu! account — no download, no setup. Live in seconds.{% endblock %}">
+  <link rel="canonical" href="https://onp.artline-studio.de{{ request.path }}">
+  <meta name="robots" content="index, follow">
+  <!-- Open Graph / social sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ONP">
+  <meta property="og:title" content="{% block og_title %}ONP — osu! now playing bot for Twitch{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Free Twitch bot that shows your osu! map on !np. Link your osu! account and go.{% endblock %}">
+  <meta property="og:url" content="https://onp.artline-studio.de{{ request.path }}">
+  <meta property="og:image" content="https://onp.artline-studio.de{{ url_for('static', filename='img/logo.png') }}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ONP — osu! now playing bot for Twitch">
+  <meta name="twitter:description" content="Free Twitch bot that shows your osu! map when viewers type !np.">
+  <meta name="twitter:image" content="https://onp.artline-studio.de{{ url_for('static', filename='img/logo.png') }}">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
