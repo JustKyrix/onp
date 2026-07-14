@@ -321,7 +321,65 @@
             </div>
             <button class="secondary-button btn-sm" type="submit"><i class="bi bi-check-lg"></i> Save</button>
           </form>
-          <span class="text-muted-soft small-note">Status: <span class="pill-tag">{{ tourney['status'] if tourney else 'draft' }}</span></span>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0"><i class="bi bi-toggles text-accent"></i> Signups</h3>
+            <p class="text-muted-soft small-note m-0">When open, viewers who type <code class="cmd-code">!tourney</code> get the signup link.</p>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            {% set st = tourney['status'] if tourney else 'draft' %}
+            {% if st == 'open' %}
+              <span class="status on"><span class="dot"></span> signups open</span>
+              <form method="post" action="{{ url_for('tourney_status') }}">
+                <input type="hidden" name="status" value="closed">
+                <button class="secondary-button btn-sm" type="submit"><i class="bi bi-pause-fill"></i> Close signups</button>
+              </form>
+            {% else %}
+              <span class="status off"><span class="dot"></span> {{ st }}</span>
+              <form method="post" action="{{ url_for('tourney_status') }}">
+                <input type="hidden" name="status" value="open">
+                <button class="primary-button btn-sm" type="submit"><i class="bi bi-play-fill"></i> Open signups</button>
+              </form>
+            {% endif %}
+          </div>
+          <div class="d-flex flex-column gap-2">
+            <span class="fw-bold body-sm">Signup link</span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <code class="token flex-grow-1 p-2">{{ url_for('tourney_page', channel=row['channel'], _external=True) }}</code>
+              <button class="secondary-button btn-sm copybtn" type="button" data-cmd="{{ url_for('tourney_page', channel=row['channel'], _external=True) }}">Copy</button>
+              <a class="secondary-button btn-sm" href="{{ url_for('tourney_page', channel=row['channel']) }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Open</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0"><i class="bi bi-people-fill text-accent"></i> Players <span class="pill-tag">{{ tplayers|length }}</span></h3>
+            <p class="text-muted-soft small-note m-0">Everyone who signed up with osu!.</p>
+          </div>
+          {% if tplayers %}
+            <div class="d-flex flex-column gap-2">
+              {% for p in tplayers %}
+                <div class="cmd-row card p-3">
+                  <div class="d-flex flex-column gap-1 flex-grow-1">
+                    <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p['osu_id'] }}" target="_blank" rel="noopener">{{ p['osu_username'] }}</a>
+                    <span class="text-muted-soft small-note">
+                      {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
+                      {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
+                    </span>
+                  </div>
+                  <form method="post" action="{{ url_for('tourney_player_remove') }}" onsubmit="return confirm('Remove this player?');">
+                    <input type="hidden" name="id" value="{{ p['id'] }}">
+                    <button class="icon-btn" type="submit" title="Remove"><i class="bi bi-trash3"></i></button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted-soft m-0">No signups yet. Open signups, then tell chat to type <code class="cmd-code">!tourney</code>.</p>
+          {% endif %}
         </div>
 
         <div class="card p-4 d-flex flex-column gap-3">

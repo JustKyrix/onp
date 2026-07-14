@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}{{ tourney['name'] if tourney else 'Tournament' }} — ONP{% endblock %}
+{% block body %}
+<main class="container-xl py-4">
+
+{% if notfound %}
+  <section class="d-flex flex-column gap-3">
+    <h2 class="m-0">No tournament here</h2>
+    <div class="card p-4">
+      <p class="text-muted-soft m-0">There's no channel called <strong>{{ channel }}</strong> using ONP.</p>
+    </div>
+  </section>
+
+{% else %}
+  <section class="d-flex flex-column gap-3">
+    <div class="d-flex flex-column gap-2">
+      <span class="eyebrow"><i class="bi bi-trophy-fill"></i> {{ channel }}</span>
+      <h2 class="m-0">{{ tourney['name'] }}</h2>
+    </div>
+
+    <!-- signup state -->
+    <div class="card p-4 d-flex flex-column align-items-start gap-3">
+      {% if tourney['status'] != 'open' %}
+        <div class="d-flex align-items-center gap-2">
+          <span class="status off"><span class="dot"></span> signups closed</span>
+        </div>
+        <p class="text-muted-soft m-0">
+          {% if tourney['status'] == 'draft' %}
+            This tournament hasn't opened signups yet — check back soon.
+          {% else %}
+            Signups are closed for this tournament.
+          {% endif %}
+        </p>
+      {% elif joined %}
+        <div class="d-flex align-items-center gap-2">
+          <span class="status on"><span class="dot"></span> you're in!</span>
+        </div>
+        <p class="text-muted-soft m-0">You're signed up as <strong class="text-accent">{{ me_name }}</strong>. Matchups will show here once the streamer sets them.</p>
+      {% else %}
+        <div class="d-flex align-items-center gap-2">
+          <span class="status on"><span class="dot"></span> signups open</span>
+        </div>
+        <p class="text-muted-soft m-0">Sign in with osu! to join. We only read your username and rank.</p>
+        <a class="primary-button btn-sm" href="{{ url_for('tourney_login', channel=channel) }}"><i class="bi bi-record-circle"></i> Sign in with osu!</a>
+      {% endif %}
+    </div>
+
+    <!-- mappool -->
+    <h3 class="cmd-group-title">Mappool</h3>
+    {% if tmaps %}
+      <div class="d-flex flex-column gap-2">
+        {% for m in tmaps %}
+          <div class="cmd-row card p-3">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <a class="fw-bold skin-line-link" href="{{ m['url'] }}" target="_blank" rel="noopener">{{ m['artist'] }} - {{ m['title'] }}</a>
+              <span class="text-muted-soft small-note">[{{ m['version'] }}] · ⭐{{ m['stars'] }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted-soft">No maps announced yet.</p>
+    {% endif %}
+
+    <!-- players -->
+    <h3 class="cmd-group-title">Players <span class="pill-tag">{{ players|length }}</span></h3>
+    {% if players %}
+      <div class="d-flex flex-column gap-2">
+        {% for p in players %}
+          <div class="cmd-row card p-3">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p['osu_id'] }}" target="_blank" rel="noopener">{{ p['osu_username'] }}</a>
+              <span class="text-muted-soft small-note">
+                {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
+                {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
+              </span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted-soft">No one's signed up yet — be first.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+</main>
+{% endblock %}

@@ -28,6 +28,7 @@ CLIENT_SECRET = os.environ['TWITCH_CLIENT_SECRET']
 DB_PATH       = os.environ.get('DB_PATH', 'onp.db')
 UPDATE_PORT   = int(os.environ.get('UPDATE_PORT', '8080'))
 HELP_URL      = os.environ.get('HELP_URL', 'https://onp.example.com')
+SITE_URL      = os.environ.get('SITE_URL', 'https://onp.artline-studio.de').rstrip('/')
 OSU_CLIENT_ID     = os.environ.get('OSU_CLIENT_ID')
 OSU_CLIENT_SECRET = os.environ.get('OSU_CLIENT_SECRET')
 TTL           = 30          # seconds before an agent play is "stale"
@@ -308,6 +309,15 @@ def list_skins(channel):
                 (channel,)).fetchall()
         except sqlite3.OperationalError:
             return []
+
+
+def get_tourney_row(channel):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT name, status FROM tourneys WHERE channel=?', (channel,)).fetchone()
+        except sqlite3.OperationalError:
+            return None
 
 
 def get_so_template(channel):
@@ -627,6 +637,18 @@ class Bot(commands.Bot):
                 await message.channel.send(
                     f"✅ Added to the queue: {bm['artist']} - {bm['title']} "
                     f"[{bm['version']}] (⭐{bm['stars']})")
+            elif kind == 'tourney':
+                t = get_tourney_row(channel)
+                if not t or t['status'] == 'draft':
+                    await message.channel.send("No tournament signups are open right now.")
+                    return
+                link = f"{SITE_URL}/t/{channel}"
+                if t['status'] == 'open':
+                    await message.channel.send(
+                        f"🏆 {t['name']} — signups are OPEN! Join here: {link}")
+                else:
+                    await message.channel.send(
+                        f"🏆 {t['name']} — signups are closed. Details: {link}")
         except Exception as e:
             print(f'dispatch error ({name}):', e)
 

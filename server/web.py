@@ -143,6 +143,19 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # tournament players (signed up via osu! login)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tourney_players (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel      TEXT NOT NULL,
+                osu_id       TEXT NOT NULL,
+                osu_username TEXT,
+                rank         INTEGER,
+                pp           INTEGER,
+                joined_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(channel, osu_id)
+            )
+        ''')
         # tournament mappool
         conn.execute('''
             CREATE TABLE IF NOT EXISTS tourney_maps (
@@ -193,6 +206,7 @@ DEFAULT_COMMANDS = [
     ('uptime',   'utility', 'uptime',   None, 1, 'anyone'),
     ('so',       'utility', 'shoutout', None, 1, 'mods'),
     ('request',  'utility', 'request',  None, 1, 'anyone'),
+    ('tourney',  'utility', 'tourney',  None, 1, 'anyone'),
 ]
 
 
@@ -477,13 +491,16 @@ def osu_login():
 
 
 @app.route('/osu/callback')
-@login_required
 def osu_callback():
     if request.args.get('state') != session.pop('osu_state', None):
         return 'State mismatch, start again.', 400
     code = request.args.get('code')
+    join_channel = session.pop('tourney_join', None)
     if not code:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('tourney_page', channel=join_channel)
+                        if join_channel else url_for('dashboard'))
+    if not join_channel and 'twitch_id' not in session:
+        return redirect(url_for('login'))
 
     tok = requests.post(OSU_TOKEN_URL, json={
         'client_id': OSU_CLIENT_ID,
@@ -494,6 +511,8 @@ def osu_callback():
     }, timeout=10).json()
     access = tok.get('access_token')
     if not access:
+        if join_channel:
+            return redirect(url_for('tourney_page', channel=join_channel))
         flash('osu! link failed, try again.')
         return redirect(url_for('dashboard'))
 
@@ -501,8 +520,27 @@ def osu_callback():
         'Authorization': f'Bearer {access}'}, timeout=10).json()
     osu_id, osu_name = str(me.get('id', '')), me.get('username', '')
     if not osu_id:
+        if join_channel:
+            return redirect(url_for('tourney_page', channel=join_channel))
         flash('Could not read your osu! account.')
         return redirect(url_for('dashboard'))
+
+    # --- player joining a tournament ---
+    if join_channel:
+        st = me.get('statistics', {}) or {}
+        session['player_osu_id'] = osu_id
+        session['player_osu_name'] = osu_name
+        t = get_tourney(join_channel)
+        if not t or t['status'] != 'open':
+            return redirect(url_for('tourney_page', channel=join_channel))
+        with db() as conn:
+            conn.execute(
+                'INSERT OR IGNORE INTO tourney_players '
+                '(channel, osu_id, osu_username, rank, pp) VALUES (?,?,?,?,?)',
+                (join_channel, osu_id, osu_name,
+                 st.get('global_rank'), round(st.get('pp', 0) or 0)))
+            conn.commit()
+        return redirect(url_for('tourney_page', channel=join_channel))
 
     with db() as conn:
         conn.execute('UPDATE channels SET osu_id=?, osu_username=? WHERE twitch_id=?',
@@ -566,11 +604,12 @@ def dashboard():
                 reqs = []
     tourney = get_tourney(row['channel']) if row else None
     tmaps = list_tourney_maps(row['channel']) if row else []
+    tplayers = list_tourney_players(row['channel']) if row else []
     return render_template('dashboard.html', row=row,
                            commands=[c for c in cmds if c['type'] != 'custom'],
                            custom_commands=[c for c in cmds if c['type'] == 'custom'],
                            skins=skins, default_so=DEFAULT_SO_TEMPLATE, requests=reqs,
-                           tourney=tourney, tmaps=tmaps)
+                           tourney=tourney, tmaps=tmaps, tplayers=tplayers)
 
 
 @app.route('/skins/add', methods=['POST'])
@@ -653,7 +692,8 @@ def command_toggle():
 
 # names that can't be used for custom commands (built-ins + np)
 RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip',
-                  'uptime', 'so', 'shoutout', 'request', 'duel', 'rps', 'hug', 'pat'}
+                  'uptime', 'so', 'shoutout', 'request', 'duel', 'rps', 'hug', 'pat',
+                  'tourney'}
 
 
 @app.route('/command/add', methods=['POST'])
@@ -718,6 +758,78 @@ def list_tourney_maps(channel):
                 (channel,)).fetchall()
         except sqlite3.OperationalError:
             return []
+
+
+@app.route('/t/<channel>')
+def tourney_page(channel):
+    """Public tournament page — players land here to sign up and see the pool."""
+    channel = (channel or '').lower()
+    with db() as conn:
+        ch = conn.execute('SELECT channel FROM channels WHERE channel=?',
+                          (channel,)).fetchone()
+    if not ch:
+        return render_template('tourney.html', notfound=True, channel=channel), 404
+    t = get_tourney(channel)
+    players = list_tourney_players(channel)
+    me_id = session.get('player_osu_id')
+    joined = any(p['osu_id'] == me_id for p in players) if me_id else False
+    return render_template('tourney.html', channel=channel, tourney=t,
+                           tmaps=list_tourney_maps(channel), players=players,
+                           joined=joined, me_name=session.get('player_osu_name'))
+
+
+@app.route('/t/<channel>/login')
+def tourney_login(channel):
+    """Send a player through osu! OAuth, remembering which tourney they're joining."""
+    channel = (channel or '').lower()
+    state = secrets.token_urlsafe(16)
+    session['osu_state'] = state
+    session['tourney_join'] = channel
+    params = {
+        'client_id': OSU_CLIENT_ID,
+        'redirect_uri': OSU_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'identify',
+        'state': state,
+    }
+    return redirect(f'{OSU_AUTH_URL}?{urlencode(params)}')
+
+
+def list_tourney_players(channel):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT id, osu_id, osu_username, rank, pp FROM tourney_players '
+                'WHERE channel=? ORDER BY joined_at ASC', (channel,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+
+@app.route('/tourney/status', methods=['POST'])
+@login_required
+def tourney_status():
+    row = get_channel(session['twitch_id'])
+    status = request.form.get('status')
+    if row and status in ('draft', 'open', 'closed'):
+        get_tourney(row['channel'])
+        with db() as conn:
+            conn.execute('UPDATE tourneys SET status=? WHERE channel=?',
+                         (status, row['channel']))
+            conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+
+
+@app.route('/tourney/player/remove', methods=['POST'])
+@login_required
+def tourney_player_remove():
+    row = get_channel(session['twitch_id'])
+    pid = request.form.get('id')
+    if row and pid:
+        with db() as conn:
+            conn.execute('DELETE FROM tourney_players WHERE id=? AND channel=?',
+                         (pid, row['channel']))
+            conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
 
 
 @app.route('/tourney/map/add', methods=['POST'])
