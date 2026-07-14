@@ -57,6 +57,7 @@
     'coinflip':'Heads or tails',
     'uptime':'How long the stream has been live',
     'shoutout':'Shout out another streamer (!so name)',
+    'request':'Viewers request beatmaps (!request link)',
     'text':'Custom text response'
   } %}
   {% set typenames = {'osu':'osu! commands','fun':'Fun','utility':'Utility','custom':'Custom'} %}
@@ -78,6 +79,7 @@
       <nav class="dash-nav">
         <button class="dash-navitem active" type="button" data-panel="commands"><i class="bi bi-terminal-fill"></i> Commands</button>
         <button class="dash-navitem" type="button" data-panel="custom"><i class="bi bi-plus-square"></i> Custom Commands</button>
+        <button class="dash-navitem" type="button" data-panel="requests"><i class="bi bi-music-note-list"></i> Requests</button>
         <button class="dash-navitem" type="button" data-panel="osu"><i class="bi bi-record-circle"></i> osu! Account</button>
         <button class="dash-navitem" type="button" data-panel="agent"><i class="bi bi-music-note-beamed"></i> Agent</button>
         <button class="dash-navitem" type="button" data-panel="settings"><i class="bi bi-gear-fill"></i> Settings</button>
@@ -107,28 +109,50 @@
           <p class="mono text-muted-soft small-note m-0 text-break">{{ row['np_template'] }}</p>
         </div>
 
+        {% macro perm_cd(c) %}
+        <form class="cmd-settings d-flex flex-wrap gap-3 align-items-end" onsubmit="return saveCmdSettings(event, this)">
+          <input type="hidden" name="name" value="{{ c['name'] }}">
+          <div class="d-flex flex-column gap-2">
+            <label class="fw-bold body-sm">Who can use it</label>
+            <select class="skin-input" name="permission">
+              <option value="anyone" {% if c['permission']=='anyone' %}selected{% endif %}>Anyone</option>
+              <option value="subs" {% if c['permission']=='subs' %}selected{% endif %}>Subscribers</option>
+              <option value="mods" {% if c['permission']=='mods' %}selected{% endif %}>Mods only</option>
+            </select>
+          </div>
+          <div class="d-flex flex-column gap-2">
+            <label class="fw-bold body-sm">Cooldown (sec)</label>
+            <input class="skin-input cd-input" type="number" name="cooldown" min="0" max="3600" value="{{ c['cooldown'] }}">
+          </div>
+          <button class="primary-button btn-sm" type="submit"><i class="bi bi-check-lg"></i> Save</button>
+        </form>
+        {% endmacro %}
+
         {% set ns = namespace(current='') %}
         {% for c in commands %}
           {% if c['type'] != ns.current %}
             {% set ns.current = c['type'] %}
             <h3 class="cmd-group-title">{{ typenames.get(c['type'], c['type']) }}</h3>
           {% endif %}
-          {% if c['kind'] == 'shoutout' %}
-            <div class="cmd-row card p-3 skin-head" onclick="toggleSoMgr(this)" role="button">
-              <div class="d-flex flex-column gap-1 flex-grow-1">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <code class="cmd-code">!{{ c['name'] }}</code>
-                  <span class="who-tag">{{ c['permission'] }}</span>
-                  <i class="bi bi-chevron-down chev skin-chev"></i>
-                </div>
-                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
+          <div class="cmd-row card p-3 cmd-head" onclick="toggleRow(this)" role="button">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <code class="cmd-code">!{{ c['name'] }}</code>
+                <span class="who-tag">{{ c['permission'] }}</span>
+                <i class="bi bi-chevron-down chev row-chev"></i>
               </div>
-              <label class="switch" title="Enable / disable" onclick="event.stopPropagation()">
-                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
-                <span class="slider"></span>
-              </label>
+              <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
             </div>
-            <div class="skin-mgr card p-4" id="soMgr" hidden>
+            <label class="switch" title="Enable / disable" onclick="event.stopPropagation()">
+              <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="cmd-expand card p-4"{% if c['kind']=='skin' %} id="skinMgr"{% elif c['kind']=='shoutout' %} id="soMgr"{% endif %} hidden>
+            {{ perm_cd(c) }}
+
+            {% if c['kind'] == 'shoutout' %}
+              <hr class="cmd-divider">
               <form method="post" action="{{ url_for('so_template_save') }}" class="d-flex flex-column gap-3">
                 <div class="d-flex flex-column gap-2">
                   <label class="fw-bold body-sm" for="so-tpl">Shoutout message</label>
@@ -149,23 +173,9 @@
                 </div>
                 <button class="primary-button btn-sm align-self-start" type="submit"><i class="bi bi-check-lg"></i> Save message</button>
               </form>
-            </div>
-          {% elif c['kind'] == 'skin' %}
-            <div class="cmd-row card p-3 skin-head" onclick="toggleSkinMgr(this)" role="button">
-              <div class="d-flex flex-column gap-1 flex-grow-1">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <code class="cmd-code">!{{ c['name'] }}</code>
-                  <span class="who-tag">{{ c['permission'] }}</span>
-                  <i class="bi bi-chevron-down chev skin-chev"></i>
-                </div>
-                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
-              </div>
-              <label class="switch" title="Enable / disable" onclick="event.stopPropagation()">
-                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="skin-mgr card p-4" id="skinMgr" hidden>
+
+            {% elif c['kind'] == 'skin' %}
+              <hr class="cmd-divider">
               <form method="post" action="{{ url_for('skin_add') }}" class="d-flex flex-column gap-3">
                 <div class="d-flex flex-column gap-2">
                   <label class="fw-bold body-sm" for="sk-title">Skin name</label>
@@ -177,7 +187,6 @@
                 </div>
                 <button class="primary-button btn-sm align-self-start" type="submit"><i class="bi bi-plus-lg"></i> Add skin</button>
               </form>
-
               {% if skins %}
                 <div class="skin-list mt-4 d-flex flex-column gap-2">
                   {% for sk in skins %}
@@ -194,22 +203,8 @@
                   {% endfor %}
                 </div>
               {% endif %}
-            </div>
-          {% else %}
-            <div class="cmd-row card p-3">
-              <div class="d-flex flex-column gap-1 flex-grow-1">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <code class="cmd-code">!{{ c['name'] }}</code>
-                  <span class="who-tag">{{ c['permission'] }}</span>
-                </div>
-                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
-              </div>
-              <label class="switch" title="Enable / disable">
-                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
-                <span class="slider"></span>
-              </label>
-            </div>
-          {% endif %}
+            {% endif %}
+          </div>
         {% endfor %}
       </section>
 
@@ -250,15 +245,16 @@
         {% if custom_commands %}
           <div class="d-flex flex-column gap-2">
             {% for c in custom_commands %}
-              <div class="cmd-row card p-3">
+              <div class="cmd-row card p-3 cmd-head" onclick="toggleRow(this)" role="button">
                 <div class="d-flex flex-column gap-1 flex-grow-1">
                   <div class="d-flex align-items-center gap-2 flex-wrap">
                     <code class="cmd-code">!{{ c['name'] }}</code>
                     <span class="who-tag">{{ c['permission'] }}</span>
+                    <i class="bi bi-chevron-down chev row-chev"></i>
                   </div>
                   <p class="text-muted-soft small-note m-0 text-break">{{ c['response'] }}</p>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
                   <form method="post" action="{{ url_for('command_delete') }}" onsubmit="return confirm('Delete !{{ c['name'] }}?');">
                     <input type="hidden" name="name" value="{{ c['name'] }}">
                     <button class="icon-btn" type="submit" title="Delete"><i class="bi bi-trash3"></i></button>
@@ -269,11 +265,40 @@
                   </label>
                 </div>
               </div>
+              <div class="cmd-expand card p-4" hidden>
+                {{ perm_cd(c) }}
+              </div>
             {% endfor %}
           </div>
         {% else %}
           <p class="text-muted-soft">No custom commands yet — add your first above.</p>
         {% endif %}
+      </section>
+
+      <!-- REQUESTS -->
+      <section class="dash-panel" data-panel="requests">
+        <div class="panel-head d-flex flex-row align-items-start justify-content-between gap-2 flex-wrap">
+          <div class="d-flex flex-column gap-1">
+            <h2 class="m-0">Beatmap Requests</h2>
+            <p class="text-muted-soft m-0">Viewers add maps with <code class="cmd-code">!request &lt;link&gt;</code>. New ones appear here live.</p>
+          </div>
+          <button class="secondary-button btn-sm" type="button" onclick="clearRequests()"><i class="bi bi-trash3"></i> Clear all</button>
+        </div>
+        <div id="reqList" class="d-flex flex-column gap-2">
+          <!-- populated by JS; initial server render below -->
+          {% if requests %}
+            {% for r in requests %}
+              <div class="cmd-row card p-3" data-reqid="{{ r['id'] }}">
+                <div class="d-flex flex-column gap-1 flex-grow-1">
+                  <a class="fw-bold skin-line-link" href="{{ r['url'] }}" target="_blank" rel="noopener">{{ r['artist'] }} - {{ r['title'] }}</a>
+                  <span class="text-muted-soft small-note">[{{ r['version'] }}] · ⭐{{ r['stars'] }} · by {{ r['requested_by'] }}</span>
+                </div>
+                <button class="secondary-button btn-sm" type="button" onclick="reqDone({{ r['id'] }})"><i class="bi bi-check-lg"></i> Done</button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+        <p class="text-muted-soft" id="reqEmpty" {% if requests %}hidden{% endif %}>No requests yet — viewers can add maps with <code class="cmd-code">!request</code>.</p>
       </section>
 
       <!-- osu! ACCOUNT -->
@@ -358,34 +383,27 @@
     document.querySelectorAll('.dash-navitem').forEach(function(btn){
       btn.addEventListener('click', function(){
         const p = btn.dataset.panel;
-        document.querySelectorAll('.dash-navitem').forEach(b=>b.classList.toggle('active', b===btn));
-        document.querySelectorAll('.dash-panel').forEach(s=>s.classList.toggle('active', s.dataset.panel===p));
+        activatePanel(p);
+        history.replaceState(null, '', '#' + p);   // remember panel for reloads
         document.getElementById('sidebar').classList.remove('open'); // close on mobile after pick
       });
     });
     function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
-    // expandable !skin manager
-    function toggleSkinMgr(row){
-      const mgr = document.getElementById('skinMgr');
-      mgr.hidden = !mgr.hidden;
-      row.classList.toggle('open', !mgr.hidden);
-    }
-    // open the right thing based on URL hash after a redirect
+    // on load: restore the panel from the URL hash (survives reloads)
+    const PANELS = ['commands','custom','requests','osu','agent','settings'];
     window.addEventListener('DOMContentLoaded', function(){
-      if(location.hash === '#skinopen'){
+      const h = location.hash.replace('#','');
+      if(location.hash === '#skinopen' || location.hash === '#soopen'){
         activatePanel('commands');
-        const mgr = document.getElementById('skinMgr');
-        const head = document.querySelector('.skin-head');
-        if(mgr){ mgr.hidden = false; if(head) head.classList.add('open'); }
-      } else if(location.hash === '#custom'){
-        activatePanel('custom');
-      } else if(location.hash === '#soopen'){
-        activatePanel('commands');
-        const mgr = document.getElementById('soMgr');
-        const head = document.querySelector('#soMgr');
-        const soRow = document.querySelector('[onclick="toggleSoMgr(this)"]');
-        if(mgr){ mgr.hidden = false; if(soRow) soRow.classList.add('open'); soPreview(); }
+        const id = location.hash === '#skinopen' ? 'skinMgr' : 'soMgr';
+        const mgr = document.getElementById(id);
+        if(mgr){ mgr.hidden = false;
+          if(mgr.previousElementSibling) mgr.previousElementSibling.classList.add('open');
+          soPreview();
+        }
+      } else if(PANELS.includes(h)){
+        activatePanel(h);
       }
     });
     function activatePanel(p){
@@ -393,13 +411,70 @@
       document.querySelectorAll('.dash-panel').forEach(s=>s.classList.toggle('active', s.dataset.panel===p));
     }
 
-    // !so template editor
-    function toggleSoMgr(row){
-      const mgr = document.getElementById('soMgr');
-      mgr.hidden = !mgr.hidden;
-      row.classList.toggle('open', !mgr.hidden);
-      if(!mgr.hidden) soPreview();
+    // --- beatmap requests (live) ---
+    function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
+    async function loadRequests(){
+      const list = document.getElementById('reqList');
+      if(!list) return;
+      try{
+        const r = await fetch('{{ url_for("requests_list") }}', {cache:'no-store'});
+        const d = await r.json();
+        const reqs = d.requests || [];
+        document.getElementById('reqEmpty').hidden = reqs.length > 0;
+        list.innerHTML = reqs.map(function(x){
+          return '<div class="cmd-row card p-3" data-reqid="'+x.id+'">'
+            + '<div class="d-flex flex-column gap-1 flex-grow-1">'
+            + '<a class="fw-bold skin-line-link" href="'+escapeHtml(x.url)+'" target="_blank" rel="noopener">'
+            + escapeHtml(x.artist)+' - '+escapeHtml(x.title)+'</a>'
+            + '<span class="text-muted-soft small-note">['+escapeHtml(x.version)+'] · ⭐'+escapeHtml(x.stars)
+            + ' · by '+escapeHtml(x.requested_by)+'</span></div>'
+            + '<button class="secondary-button btn-sm" type="button" onclick="reqDone('+x.id+')"><i class="bi bi-check-lg"></i> Done</button>'
+            + '</div>';
+        }).join('');
+      }catch(e){}
     }
+    async function reqDone(id){
+      try{ await fetch('{{ url_for("requests_done") }}', {method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+id}); }catch(e){}
+      loadRequests();
+    }
+    async function clearRequests(){
+      if(!confirm('Clear all pending requests?')) return;
+      try{ await fetch('{{ url_for("requests_clear") }}', {method:'POST'}); }catch(e){}
+      loadRequests();
+    }
+    // poll every 5s
+    loadRequests();
+    setInterval(loadRequests, 5000);
+
+    // expandable command rows (generic)
+    function toggleRow(head){
+      const exp = head.nextElementSibling;
+      exp.hidden = !exp.hidden;
+      head.classList.toggle('open', !exp.hidden);
+      if(!exp.hidden && exp.querySelector('#soPreviewBox')) soPreview();
+    }
+
+    async function saveCmdSettings(ev, form){
+      ev.preventDefault();
+      const btn = form.querySelector('button[type=submit]');
+      const old = btn.innerHTML;
+      try{
+        const r = await fetch('{{ url_for("command_settings") }}', {
+          method:'POST', body:new URLSearchParams(new FormData(form))});
+        const d = await r.json();
+        if(d.ok){
+          btn.innerHTML = '<i class="bi bi-check-lg"></i> Saved!';
+          const head = form.closest('.cmd-expand').previousElementSibling;
+          const tag = head.querySelector('.who-tag');
+          if(tag) tag.textContent = d.permission;
+        } else { btn.innerHTML = 'Error'; }
+      } catch(e){ btn.innerHTML = 'Error'; }
+      setTimeout(()=>{ btn.innerHTML = old; }, 1500);
+      return false;
+    }
+
+    // !so template editor
     function soInsert(ph){
       const ta = document.getElementById('so-tpl');
       const s = ta.selectionStart, e = ta.selectionEnd;
@@ -410,6 +485,7 @@
     function soPreview(){
       const ta = document.getElementById('so-tpl');
       const box = document.getElementById('soPreviewBox');
+      if(!ta || !box) return;
       const sample = {name:'@Pokimane', link:'https://twitch.tv/pokimane', game:'osu!', title:'ranked grind'};
       box.textContent = ta.value.replace(/\{(name|link|game|title)\}/g, (m,k)=>sample[k]);
     }
