@@ -84,6 +84,7 @@
         <button class="dash-navitem active" type="button" data-panel="commands"><i class="bi bi-terminal-fill"></i> Commands</button>
         <button class="dash-navitem" type="button" data-panel="custom"><i class="bi bi-plus-square"></i> Custom Commands</button>
         <button class="dash-navitem" type="button" data-panel="requests"><i class="bi bi-music-note-list"></i> Requests</button>
+        <button class="dash-navitem" type="button" data-panel="tourney"><i class="bi bi-trophy-fill"></i> Tournament</button>
         <button class="dash-navitem" type="button" data-panel="osu"><i class="bi bi-record-circle"></i> osu! Account</button>
         <button class="dash-navitem" type="button" data-panel="agent"><i class="bi bi-music-note-beamed"></i> Agent</button>
         <button class="dash-navitem" type="button" data-panel="settings"><i class="bi bi-gear-fill"></i> Settings</button>
@@ -305,6 +306,59 @@
         <p class="text-muted-soft" id="reqEmpty" {% if requests %}hidden{% endif %}>No requests yet — viewers can add maps with <code class="cmd-code">!request</code>.</p>
       </section>
 
+      <!-- TOURNAMENT -->
+      <section class="dash-panel" data-panel="tourney">
+        <div class="panel-head">
+          <h2 class="m-0">Tournament</h2>
+          <p class="text-muted-soft m-0">Build your mappool now — signups and matchups come next.</p>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <h3 class="m-0"><i class="bi bi-trophy text-accent"></i> Tournament name</h3>
+          <form method="post" action="{{ url_for('tourney_rename') }}" class="d-flex flex-wrap gap-2 align-items-end">
+            <div class="d-flex flex-column gap-2 flex-grow-1">
+              <input class="skin-input" name="name" maxlength="80" value="{{ tourney['name'] if tourney else 'Tournament' }}" placeholder="Weekly 5-Digit Cup">
+            </div>
+            <button class="secondary-button btn-sm" type="submit"><i class="bi bi-check-lg"></i> Save</button>
+          </form>
+          <span class="text-muted-soft small-note">Status: <span class="pill-tag">{{ tourney['status'] if tourney else 'draft' }}</span></span>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0"><i class="bi bi-music-note-list text-accent"></i> Mappool</h3>
+            <p class="text-muted-soft small-note m-0">Paste an osu! beatmap link — the name is fetched automatically.</p>
+          </div>
+          <form method="post" action="{{ url_for('tourney_map_add') }}" class="d-flex flex-wrap gap-2 align-items-end">
+            <div class="d-flex flex-column gap-2 flex-grow-1">
+              <label class="fw-bold body-sm" for="tm-link">Beatmap link</label>
+              <input class="skin-input" id="tm-link" name="link" maxlength="400" placeholder="https://osu.ppy.sh/beatmapsets/…#osu/…" required>
+            </div>
+            <button class="primary-button btn-sm" type="submit"><i class="bi bi-plus-lg"></i> Add map</button>
+          </form>
+        </div>
+
+        {% if tmaps %}
+          <div class="d-flex flex-column gap-2">
+            {% for m in tmaps %}
+              <div class="cmd-row card p-3">
+                <div class="d-flex flex-column gap-1 flex-grow-1">
+                  <a class="fw-bold skin-line-link" href="{{ m['url'] }}" target="_blank" rel="noopener">{{ m['artist'] }} - {{ m['title'] }}</a>
+                  <span class="text-muted-soft small-note">[{{ m['version'] }}] · ⭐{{ m['stars'] }}</span>
+                </div>
+                <form method="post" action="{{ url_for('tourney_map_delete') }}" onsubmit="return confirm('Remove this map from the pool?');">
+                  <input type="hidden" name="id" value="{{ m['id'] }}">
+                  <button class="icon-btn" type="submit" title="Remove"><i class="bi bi-trash3"></i></button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+          <p class="text-muted-soft small-note">{{ tmaps|length }} map{{ 's' if tmaps|length != 1 }} in the pool.</p>
+        {% else %}
+          <p class="text-muted-soft">No maps yet — paste a beatmap link above to start your pool.</p>
+        {% endif %}
+      </section>
+
       <!-- osu! ACCOUNT -->
       <section class="dash-panel" data-panel="osu">
         <div class="panel-head">
@@ -395,7 +449,7 @@
     function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
     // on load: restore the panel from the URL hash (survives reloads)
-    const PANELS = ['commands','custom','requests','osu','agent','settings'];
+    const PANELS = ['commands','custom','requests','tourney','osu','agent','settings'];
     window.addEventListener('DOMContentLoaded', function(){
       const h = location.hash.replace('#','');
       if(location.hash === '#skinopen' || location.hash === '#soopen'){

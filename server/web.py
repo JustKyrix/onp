@@ -1,4 +1,5 @@
 import os
+import re as _re
 import secrets
 import sqlite3
 from functools import wraps
@@ -132,6 +133,30 @@ def init_db():
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # tournament: one per channel (UNIQUE channel)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tourneys (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel    TEXT NOT NULL UNIQUE,
+                name       TEXT DEFAULT 'Tournament',
+                status     TEXT DEFAULT 'draft',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        # tournament mappool
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tourney_maps (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel    TEXT NOT NULL,
+                beatmap_id TEXT,
+                title      TEXT,
+                artist     TEXT,
+                version    TEXT,
+                stars      TEXT,
+                url        TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         # beatmap requests queue
         conn.execute('''
             CREATE TABLE IF NOT EXISTS requests (
@@ -201,6 +226,67 @@ def inject_globals():
     return {'bot_username': BOT_USERNAME,
             'logged_in': 'twitch_id' in session,
             'channel_name': session.get('channel')}
+
+
+# ---------- osu! app token + beatmap lookup (for the tourney mappool) ----------
+_OSU_APP_TOKEN = {'token': None, 'exp': 0}
+
+
+def osu_app_token():
+    """Client-credentials token for public osu! API reads (beatmap info)."""
+    import time as _t
+    if _OSU_APP_TOKEN['token'] and _t.time() < _OSU_APP_TOKEN['exp'] - 60:
+        return _OSU_APP_TOKEN['token']
+    try:
+        r = requests.post('https://osu.ppy.sh/oauth/token', json={
+            'client_id': OSU_CLIENT_ID, 'client_secret': OSU_CLIENT_SECRET,
+            'grant_type': 'client_credentials', 'scope': 'public',
+        }, timeout=10).json()
+    except Exception:
+        return None
+    if 'access_token' not in r:
+        return None
+    _OSU_APP_TOKEN['token'] = r['access_token']
+    _OSU_APP_TOKEN['exp'] = _t.time() + r.get('expires_in', 3600)
+    return _OSU_APP_TOKEN['token']
+
+
+def parse_beatmap_id(text):
+    """Pull a beatmap (difficulty) id out of an osu! link or raw id."""
+    text = (text or '').strip()
+    m = _re.search(r'#\w+/(\d+)', text)            # beatmapsets/123#osu/456
+    if m:
+        return m.group(1)
+    m = _re.search(r'/b(?:eatmaps)?/(\d+)', text)   # /b/456 or /beatmaps/456
+    if m:
+        return m.group(1)
+    if text.isdigit():
+        return text
+    m = _re.search(r'(\d+)\D*$', text)
+    return m.group(1) if m else None
+
+
+def osu_beatmap_info(bid):
+    tok = osu_app_token()
+    if not tok:
+        return None
+    try:
+        b = requests.get(f'https://osu.ppy.sh/api/v2/beatmaps/{bid}',
+                         headers={'Authorization': f'Bearer {tok}'},
+                         timeout=10).json()
+    except Exception:
+        return None
+    if not b or 'id' not in b:
+        return None
+    bs = b.get('beatmapset', {}) or {}
+    return {
+        'beatmap_id': str(b.get('id', bid)),
+        'title': bs.get('title', '?'),
+        'artist': bs.get('artist', '?'),
+        'version': b.get('version', '?'),
+        'stars': f"{round(b.get('difficulty_rating', 0) or 0, 2)}",
+        'url': b.get('url', f'https://osu.ppy.sh/b/{bid}'),
+    }
 
 
 # ---------- twitch moderator management ----------
@@ -478,10 +564,13 @@ def dashboard():
                     (row['channel'],)).fetchall()
             except sqlite3.OperationalError:
                 reqs = []
+    tourney = get_tourney(row['channel']) if row else None
+    tmaps = list_tourney_maps(row['channel']) if row else []
     return render_template('dashboard.html', row=row,
                            commands=[c for c in cmds if c['type'] != 'custom'],
                            custom_commands=[c for c in cmds if c['type'] == 'custom'],
-                           skins=skins, default_so=DEFAULT_SO_TEMPLATE, requests=reqs)
+                           skins=skins, default_so=DEFAULT_SO_TEMPLATE, requests=reqs,
+                           tourney=tourney, tmaps=tmaps)
 
 
 @app.route('/skins/add', methods=['POST'])
@@ -565,7 +654,6 @@ def command_toggle():
 # names that can't be used for custom commands (built-ins + np)
 RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip',
                   'uptime', 'so', 'shoutout', 'request', 'duel', 'rps', 'hug', 'pat'}
-import re as _re
 
 
 @app.route('/command/add', methods=['POST'])
@@ -603,6 +691,91 @@ def command_add():
             (row['channel'], name, response, permission))
         conn.commit()
     return redirect(url_for('dashboard') + '#custom')
+
+
+def get_tourney(channel):
+    """The channel's tournament row, creating a draft one on first use."""
+    with db() as conn:
+        try:
+            row = conn.execute('SELECT * FROM tourneys WHERE channel=?',
+                               (channel,)).fetchone()
+            if not row:
+                conn.execute('INSERT INTO tourneys (channel) VALUES (?)', (channel,))
+                conn.commit()
+                row = conn.execute('SELECT * FROM tourneys WHERE channel=?',
+                                   (channel,)).fetchone()
+            return row
+        except sqlite3.OperationalError:
+            return None
+
+
+def list_tourney_maps(channel):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT id, beatmap_id, title, artist, version, stars, url '
+                'FROM tourney_maps WHERE channel=? ORDER BY created_at ASC',
+                (channel,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+
+@app.route('/tourney/map/add', methods=['POST'])
+@login_required
+def tourney_map_add():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    link = (request.form.get('link') or '').strip()
+    bid = parse_beatmap_id(link)
+    if not bid:
+        flash("Couldn't read that beatmap link.")
+        return redirect(url_for('dashboard') + '#tourney')
+    bm = osu_beatmap_info(bid)
+    if not bm:
+        flash("Couldn't find that beatmap on osu!.")
+        return redirect(url_for('dashboard') + '#tourney')
+    with db() as conn:
+        dupe = conn.execute(
+            'SELECT 1 FROM tourney_maps WHERE channel=? AND beatmap_id=?',
+            (row['channel'], bm['beatmap_id'])).fetchone()
+        if dupe:
+            flash('That map is already in the pool.')
+            return redirect(url_for('dashboard') + '#tourney')
+        conn.execute(
+            'INSERT INTO tourney_maps (channel, beatmap_id, title, artist, '
+            'version, stars, url) VALUES (?,?,?,?,?,?,?)',
+            (row['channel'], bm['beatmap_id'], bm['title'], bm['artist'],
+             bm['version'], bm['stars'], bm['url']))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+
+
+@app.route('/tourney/map/delete', methods=['POST'])
+@login_required
+def tourney_map_delete():
+    row = get_channel(session['twitch_id'])
+    mid = request.form.get('id')
+    if row and mid:
+        with db() as conn:
+            conn.execute('DELETE FROM tourney_maps WHERE id=? AND channel=?',
+                         (mid, row['channel']))
+            conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+
+
+@app.route('/tourney/rename', methods=['POST'])
+@login_required
+def tourney_rename():
+    row = get_channel(session['twitch_id'])
+    if row:
+        name = (request.form.get('name') or '').strip()[:80] or 'Tournament'
+        get_tourney(row['channel'])
+        with db() as conn:
+            conn.execute('UPDATE tourneys SET name=? WHERE channel=?',
+                         (name, row['channel']))
+            conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
 
 
 @app.route('/requests/list')
