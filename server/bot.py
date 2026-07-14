@@ -421,8 +421,9 @@ class Bot(commands.Bot):
                     return
                 parts = []
                 for s in skins:
-                    parts.append(f"{s['title']} ({s['link']})" if s['link'] else s['title'])
-                msg = "🎨 Skins: " + " | ".join(parts)
+                    # keep a space on both sides of the URL so Twitch auto-links it
+                    parts.append(f"{s['title']}: {s['link']}" if s['link'] else s['title'])
+                msg = "🎨 Skins — " + "  |  ".join(parts)
                 await message.channel.send(msg[:490])
         except Exception as e:
             print(f'dispatch error ({name}):', e)
