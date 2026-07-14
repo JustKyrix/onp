@@ -207,6 +207,7 @@ DEFAULT_COMMANDS = [
     ('so',       'utility', 'shoutout', None, 1, 'mods'),
     ('request',  'utility', 'request',  None, 1, 'anyone'),
     ('tourney',  'utility', 'tourney',  None, 1, 'anyone'),
+    ('help',     'utility', 'help',     None, 1, 'anyone'),
 ]
 
 
@@ -693,7 +694,7 @@ def command_toggle():
 # names that can't be used for custom commands (built-ins + np)
 RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip',
                   'uptime', 'so', 'shoutout', 'request', 'duel', 'rps', 'hug', 'pat',
-                  'tourney'}
+                  'tourney', 'help', 'commands'}
 
 
 @app.route('/command/add', methods=['POST'])
@@ -758,6 +759,30 @@ def list_tourney_maps(channel):
                 (channel,)).fetchall()
         except sqlite3.OperationalError:
             return []
+
+
+@app.route('/c/<channel>')
+def commands_page(channel):
+    """Public list of a channel's commands — what's on and what's off."""
+    channel = (channel or '').lower()
+    with db() as conn:
+        ch = conn.execute('SELECT channel FROM channels WHERE channel=?',
+                          (channel,)).fetchone()
+        if not ch:
+            return render_template('commands.html', notfound=True,
+                                   channel=channel), 404
+        try:
+            cmds = conn.execute(
+                'SELECT name, type, kind, response, enabled, permission '
+                'FROM commands WHERE channel=? ORDER BY '
+                "CASE type WHEN 'osu' THEN 0 WHEN 'fun' THEN 1 "
+                "WHEN 'utility' THEN 2 ELSE 3 END, name", (channel,)).fetchall()
+            row = conn.execute('SELECT enabled FROM channels WHERE channel=?',
+                               (channel,)).fetchone()
+        except sqlite3.OperationalError:
+            cmds, row = [], None
+    return render_template('commands.html', channel=channel, commands=cmds,
+                           np_enabled=bool(row['enabled']) if row else False)
 
 
 @app.route('/t/<channel>')

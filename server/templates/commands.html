@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}{{ channel }}'s commands — ONP{% endblock %}
+{% block body %}
+<main class="container-xl py-4">
+
+{% if notfound %}
+  <section class="d-flex flex-column gap-3">
+    <h2 class="m-0">Nothing here</h2>
+    <div class="card p-4">
+      <p class="text-muted-soft m-0">There's no channel called <strong>{{ channel }}</strong> using ONP.</p>
+    </div>
+  </section>
+
+{% else %}
+  {% set labels = {
+    'skin':'Lists the streamer\'s skins',
+    'recent':'Their most recent score',
+    'stats':'Their osu! profile stats',
+    '8ball':'Magic 8-ball answer',
+    'roll':'Random number',
+    'coinflip':'Heads or tails',
+    'duel':'Challenge someone to a duel',
+    'rps':'Rock paper scissors vs the bot',
+    'hug':'Hug someone',
+    'pat':'Headpat someone',
+    'uptime':'How long the stream has been live',
+    'shoutout':'Shout out another streamer',
+    'request':'Request a beatmap',
+    'tourney':'Tournament signup link',
+    'help':'This page',
+    'text':'Custom command'
+  } %}
+  {% set usage = {
+    'duel':'!duel <user>', 'rps':'!rps rock|paper|scissors', 'hug':'!hug <user>',
+    'pat':'!pat <user>', 'shoutout':'!so <user>', 'request':'!request <map link>',
+    'roll':'!roll [max]', '8ball':'!8ball <question>'
+  } %}
+  {% set typenames = {'osu':'osu! commands','fun':'Fun','utility':'Utility','custom':'Custom'} %}
+
+  <section class="d-flex flex-column gap-3">
+    <div class="d-flex flex-column gap-2">
+      <span class="eyebrow"><i class="bi bi-terminal-fill"></i> {{ channel }}</span>
+      <h2 class="m-0">Commands</h2>
+      <p class="text-muted-soft m-0">Everything you can type in <strong>{{ channel }}</strong>'s chat. Greyed-out ones are switched off right now.</p>
+    </div>
+
+    <h3 class="cmd-group-title">Now playing</h3>
+    <div class="cmd-row card p-3 {{ '' if np_enabled else 'cmd-off' }}">
+      <div class="d-flex flex-column gap-1 flex-grow-1">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <code class="cmd-code">!np</code>
+          <span class="who-tag">anyone</span>
+        </div>
+        <p class="text-muted-soft small-note m-0">Shows the map they're playing</p>
+      </div>
+      {% if np_enabled %}
+        <span class="status on"><span class="dot"></span> on</span>
+      {% else %}
+        <span class="status off"><span class="dot"></span> off</span>
+      {% endif %}
+    </div>
+
+    {% set ns = namespace(current='') %}
+    {% for c in commands %}
+      {% if c['type'] != ns.current %}
+        {% set ns.current = c['type'] %}
+        <h3 class="cmd-group-title">{{ typenames.get(c['type'], c['type']) }}</h3>
+      {% endif %}
+      <div class="cmd-row card p-3 {{ '' if c['enabled'] else 'cmd-off' }}">
+        <div class="d-flex flex-column gap-1 flex-grow-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <code class="cmd-code">{{ usage.get(c['kind'], '!' ~ c['name']) }}</code>
+            <span class="who-tag">{{ c['permission'] }}</span>
+          </div>
+          {% if c['type'] == 'custom' %}
+            <p class="text-muted-soft small-note m-0 text-break">{{ c['response'] }}</p>
+          {% else %}
+            <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
+          {% endif %}
+        </div>
+        {% if c['enabled'] %}
+          <span class="status on"><span class="dot"></span> on</span>
+        {% else %}
+          <span class="status off"><span class="dot"></span> off</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <p class="text-muted-soft small-note">
+      <strong>anyone</strong> = everyone can use it · <strong>subs</strong> = subscribers only · <strong>mods</strong> = moderators only
+    </p>
+  </section>
+{% endif %}
+
+</main>
+{% endblock %}

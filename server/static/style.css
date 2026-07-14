@@ -375,3 +375,6 @@ select.skin-input { cursor:pointer; }
 .cmd-divider { border:0; border-top:1px solid var(--line); margin:var(--space-2) 0; inline-size:100%; }
 .cd-input { inline-size:110px; }
 .cmd-settings { align-items:flex-end; }
+
+/* public command list: dim the switched-off ones */
+.cmd-off { opacity:.5; }

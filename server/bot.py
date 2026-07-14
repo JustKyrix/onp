@@ -637,6 +637,9 @@ class Bot(commands.Bot):
                 await message.channel.send(
                     f"✅ Added to the queue: {bm['artist']} - {bm['title']} "
                     f"[{bm['version']}] (⭐{bm['stars']})")
+            elif kind == 'help':
+                await message.channel.send(
+                    f"📖 All of {channel}'s commands: {SITE_URL}/c/{channel}")
             elif kind == 'tourney':
                 t = get_tourney_row(channel)
                 if not t or t['status'] == 'draft':
