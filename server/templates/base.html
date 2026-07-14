@@ -6,14 +6,14 @@
   <meta name="google-site-verification" content="_xpWYnZJO0KbUNcPg-TQWtpZt4imZw9n-S64sZwpQXo" />
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <title>{% block title %}ONP — osu! now playing bot for Twitch (!np){% endblock %}</title>
-  <meta name="description" content="{% block description %}Free Twitch bot that shows your current osu! map when viewers type !np. Link your osu! account — no download, no setup. Live in seconds.{% endblock %}">
+  <meta name="description" content="{% block description %}Free Twitch bot that shows your current osu! map when viewers type !np. Plus beatmap requests, osu! stats, custom commands and tournaments. No download, no setup.{% endblock %}">
   <link rel="canonical" href="https://onp.artline-studio.de{{ request.path }}">
   <meta name="robots" content="index, follow">
   <!-- Open Graph / social sharing -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ONP">
   <meta property="og:title" content="{% block og_title %}ONP — osu! now playing bot for Twitch{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}Free Twitch bot that shows your osu! map on !np. Link your osu! account and go.{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Free Twitch bot that shows your osu! map on !np — plus beatmap requests, custom commands and tournaments.{% endblock %}">
   <meta property="og:url" content="https://onp.artline-studio.de{{ request.path }}">
   <meta property="og:image" content="https://onp.artline-studio.de{{ url_for('static', filename='img/logo.png') }}">
   <meta name="twitter:card" content="summary">
@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='23') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='24') }}">
 </head>
 <body>
   <nav class="navbar navbar-expand-md py-3">

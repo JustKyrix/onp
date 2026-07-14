@@ -8,7 +8,7 @@
       <div class="d-flex flex-column gap-3">
         <span class="eyebrow"><i class="bi bi-stars"></i>Twitch bot for osu!</span>
         <h1 class="hero-title m-0">Your osu! map,<br>in chat, on <span class="g">!np</span> <i class="bi bi-music-note-beamed text-accent"></i></h1>
-        <p class="lead-text text-muted-soft m-0">Link your osu! account and ONP drops whatever you're playing into your Twitch chat the second a viewer asks. No downloads, just log in and go.</p>
+        <p class="lead-text text-muted-soft m-0">Link your osu! account and ONP drops whatever you're playing into your Twitch chat the second a viewer asks. Then add beatmap requests, osu! stats, chat games, your own commands and even tournaments — all free, no downloads.</p>
       </div>
       <div class="d-flex flex-wrap gap-2">
         {% if logged_in %}
@@ -56,9 +56,12 @@
     <div class="row g-3">
       {% set feats = [
         ('bi-lightning-charge-fill','Instant setup','Log in, link osu!, done. !np works right away — no app to download.'),
-        ('bi-palette-fill','Fully customizable','Decide exactly what !np prints — fields, order, emojis, all of it.'),
+        ('bi-palette-fill','Fully customizable','Decide exactly what !np and !so print — fields, order, emojis, all of it.'),
+        ('bi-terminal-fill','Commands that scale','osu! stats, fun games, utilities — toggle each one, set who can use it and how often.'),
+        ('bi-plus-square','Your own commands','Add !discord, !socials, anything. Type the response, pick the permission, done.'),
+        ('bi-music-note-list','Beatmap requests','Viewers request maps with !request — they land in a live queue on your dashboard.'),
+        ('bi-trophy-fill','Tournament mode','Build a mappool, open signups, and let players join with their osu! account.'),
         ('bi-robot','Just mod it','Add the bot as a mod and it auto-joins your channel in seconds.'),
-        ('bi-music-note-beamed','Live mode','Want the exact map mid-run? Run the optional agent for real-time data.'),
         ('bi-shield-lock-fill','Yours only','osu! login proves the account is yours — nobody posts plays as you.'),
         ('bi-heart-fill','Free & open','No ads, no paywall. Just a cute little bot for your community.') ] %}
       {% for icon, title, desc in feats %}
@@ -103,24 +106,51 @@
     <div class="d-flex flex-column gap-2">
       <span class="eyebrow"><i class="bi bi-stars"></i> commands</span>
       <h2 class="m-0">What viewers can type</h2>
+      <p class="text-muted-soft m-0">Every command can be switched on or off, limited to subs or mods, and given a cooldown — from your dashboard.</p>
     </div>
-    <div class="card p-4 d-flex flex-column gap-3">
-      <div class="d-flex align-items-baseline gap-3 flex-wrap">
-        <code class="cmd-code">!np</code>
-        <span class="text-muted-soft flex-grow-1 body-sm">Your latest map — artist, title, difficulty, stars, mods, link.</span>
-        <span class="who-tag">anyone</span>
+
+    {% set groups = [
+      ('osu!', [
+        ('!np', "The map you're playing — artist, title, difficulty, stars, mods, link.", 'anyone'),
+        ('!rs', 'Your most recent score — rank, accuracy, combo, pp.', 'anyone'),
+        ('!stats', 'Your profile — pp, global and country rank, accuracy, playcount.', 'anyone'),
+        ('!skin', 'Lists the skins you set up, with links.', 'anyone'),
+        ('!request <map>', 'Viewers request a beatmap — it lands in your dashboard queue.', 'anyone')
+      ]),
+      ('Fun', [
+        ('!duel <user>', 'Challenge someone. The bot decides who wins.', 'anyone'),
+        ('!rps rock|paper|scissors', 'Rock paper scissors against the bot.', 'anyone'),
+        ('!8ball <question>', 'Magic 8-ball answers.', 'anyone'),
+        ('!roll [max]', 'Roll a random number.', 'anyone'),
+        ('!coinflip', 'Heads or tails.', 'anyone'),
+        ('!hug / !pat <user>', 'Wholesome chat interactions.', 'anyone')
+      ]),
+      ('Utility', [
+        ('!help', 'Links to your full, always up-to-date command list.', 'anyone'),
+        ('!uptime', "How long you've been live.", 'anyone'),
+        ('!so <user>', 'Shout out another streamer — fully customizable message.', 'mods'),
+        ('!tourney', 'Posts your tournament signup link.', 'anyone')
+      ])
+    ] %}
+
+    {% for gname, cmds in groups %}
+      <div class="d-flex flex-column gap-2">
+        <h3 class="cmd-group-title m-0">{{ gname }}</h3>
+        <div class="card p-4 d-flex flex-column gap-3">
+          {% for code, desc, who in cmds %}
+            <div class="d-flex align-items-baseline gap-3 flex-wrap {{ 'border-top pt-3' if not loop.first }}">
+              <code class="cmd-code">{{ code }}</code>
+              <span class="text-muted-soft flex-grow-1 body-sm">{{ desc }}</span>
+              <span class="who-tag">{{ who }}</span>
+            </div>
+          {% endfor %}
+        </div>
       </div>
-      <div class="d-flex align-items-baseline gap-3 flex-wrap border-top pt-3">
-        <code class="cmd-code">!np help</code>
-        <span class="text-muted-soft flex-grow-1 body-sm">Points viewers to this page.</span>
-        <span class="who-tag">anyone</span>
-      </div>
-      <div class="d-flex align-items-baseline gap-3 flex-wrap border-top pt-3">
-        <code class="cmd-code">!np on / off</code>
-        <span class="text-muted-soft flex-grow-1 body-sm">Toggle the command on the fly.</span>
-        <span class="who-tag">you / mods</span>
-      </div>
-      <p class="text-muted-soft small-note m-0"><i class="bi bi-info-circle"></i> More commands coming soon ♪</p>
+    {% endfor %}
+
+    <div class="card p-4 d-flex flex-column align-items-start gap-2">
+      <h3 class="m-0"><i class="bi bi-plus-circle text-accent"></i> …and your own</h3>
+      <p class="text-muted-soft body-sm m-0">Add custom commands like <code class="cmd-code">!discord</code> or <code class="cmd-code">!socials</code> in seconds — type the response, choose who can use it, done.</p>
     </div>
   </section>
 
@@ -137,7 +167,10 @@
         ('Do I need to download anything?', 'No. ONP reads your last play straight from your linked osu! account, so the !np command works with zero downloads and no setup. An optional agent (used with tosu) is only needed if you want the exact live map mid-run.'),
         ('Is ONP free?', 'Yes, ONP is completely free — no ads, no paywall, no subscription. Just log in with Twitch, link osu!, and go.'),
         ('What is the !np command?', 'The !np command is a Twitch chat command that displays the streamer current osu! map. Viewers type !np and the bot replies with the beatmap details and link, so nobody has to ask what map is this again.'),
-        ('Does it show the live map while I am playing?', 'Instant mode shows your most recent osu! play, which is enough for most streamers. If you want the exact map in real time while you are mid-run, you can run the optional agent alongside tosu.') ] %}
+        ('Does it show the live map while I am playing?', 'Instant mode shows your most recent osu! play, which is enough for most streamers. If you want the exact map in real time while you are mid-run, you can run the optional agent alongside tosu.'),
+        ('What other commands does ONP have?', 'Besides !np, ONP has osu! commands like !rs and !stats, beatmap requests with !request, fun chat games like !duel, !rps and !8ball, and utilities like !uptime, !so and !help. You can also create your own custom commands, and every command can be toggled on or off, limited to subscribers or mods, and given a cooldown.'),
+        ('Can viewers request beatmaps?', 'Yes. Viewers type !request with an osu! beatmap link and the map is added to a live queue on your dashboard, showing the artist, title, difficulty and star rating along with who requested it.'),
+        ('Can I run an osu! tournament with ONP?', 'Yes. Tournament mode lets you build a mappool by pasting osu! beatmap links, then open signups so players can join with their own osu! account. Viewers get the signup link by typing !tourney in chat.') ] %}
       {% for q, a in faqs %}
       <div class="accordion-item">
         <h3 class="accordion-header">
@@ -190,7 +223,7 @@
     {
       "@type": "SoftwareApplication",
       "name": "ONP",
-      "description": "Free osu! now playing bot for Twitch. Viewers type !np to see the streamer's current osu! map — no download, no setup.",
+      "description": "Free osu! bot for Twitch. Viewers type !np to see the streamer's current osu! map — plus beatmap requests, osu! stats, custom commands, fun chat games and tournament mode. No download, no setup.",
       "applicationCategory": "Twitch bot",
       "operatingSystem": "Web",
       "url": "https://onp.artline-studio.de/",
@@ -204,6 +237,10 @@
         { "@type": "Question", "name": "Do I need to download anything?", "acceptedAnswer": { "@type": "Answer", "text": "No. ONP reads your last play from your linked osu! account, so !np works with zero downloads and no setup." } },
         { "@type": "Question", "name": "Is ONP free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, ONP is completely free — no ads, no paywall, no subscription." } },
         { "@type": "Question", "name": "What is the !np command?", "acceptedAnswer": { "@type": "Answer", "text": "The !np command is a Twitch chat command that displays the streamer's current osu! map with beatmap details and a link." } }
+      ,
+        { "@type": "Question", "name": "What other commands does ONP have?", "acceptedAnswer": { "@type": "Answer", "text": "Besides !np, ONP has osu! commands like !rs and !stats, beatmap requests with !request, fun chat games like !duel, !rps and !8ball, and utilities like !uptime, !so and !help. You can also create custom commands, and every command can be toggled, limited to subscribers or mods, and given a cooldown." } },
+        { "@type": "Question", "name": "Can viewers request beatmaps?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Viewers type !request with an osu! beatmap link and the map is added to a live queue on your dashboard, showing artist, title, difficulty and star rating." } },
+        { "@type": "Question", "name": "Can I run an osu! tournament with ONP?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Tournament mode lets you build a mappool from osu! beatmap links and open signups so players can join with their own osu! account. Viewers get the signup link by typing !tourney." } }
       ]
     }
   ]
