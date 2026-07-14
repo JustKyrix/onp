@@ -320,6 +320,55 @@ def get_so_template(channel):
             return None
 
 
+import re as _re
+
+def parse_beatmap_id(text):
+    """Pull a beatmap (difficulty) id out of a link or raw id."""
+    text = text.strip()
+    # beatmapsets/456#osu/123  ->  123 (the diff id after the mode)
+    m = _re.search(r'#\w+/(\d+)', text)
+    if m:
+        return m.group(1)
+    # /b/123  or  /beatmaps/123
+    m = _re.search(r'/b(?:eatmaps)?/(\d+)', text)
+    if m:
+        return m.group(1)
+    # bare number
+    if text.isdigit():
+        return text
+    # last number anywhere as a fallback
+    m = _re.search(r'(\d+)\D*$', text)
+    return m.group(1) if m else None
+
+
+def osu_beatmap(bid):
+    try:
+        b = osu_get(f'beatmaps/{bid}').json()
+    except Exception:
+        return None
+    if not b or 'id' not in b:
+        return None
+    bs = b.get('beatmapset', {}) or {}
+    return {
+        'beatmap_id': str(b.get('id', bid)),
+        'title': bs.get('title', '?'),
+        'artist': bs.get('artist', '?'),
+        'version': b.get('version', '?'),
+        'stars': round(b.get('difficulty_rating', 0) or 0, 2),
+        'url': b.get('url', f'https://osu.ppy.sh/b/{bid}'),
+    }
+
+
+def add_request(channel, bm, requested_by):
+    with db() as conn:
+        conn.execute(
+            'INSERT INTO requests (channel, beatmap_id, title, artist, version, '
+            'stars, url, requested_by) VALUES (?,?,?,?,?,?,?,?)',
+            (channel, bm['beatmap_id'], bm['title'], bm['artist'], bm['version'],
+             str(bm['stars']), bm['url'], requested_by))
+        conn.commit()
+
+
 def get_command(channel, name):
     with db() as conn:
         try:
@@ -499,6 +548,22 @@ class Bot(commands.Bot):
                 except Exception:
                     out = f"📢 Go show {data['name']} some love at {data['link']}"
                 await message.channel.send(out[:490])
+            elif kind == 'request':
+                if not args:
+                    await message.channel.send("Usage: !request <beatmap link or id>")
+                    return
+                bid = parse_beatmap_id(args[0])
+                if not bid:
+                    await message.channel.send("Couldn't read that beatmap link — try the map's osu! URL.")
+                    return
+                bm = osu_beatmap(bid)
+                if not bm:
+                    await message.channel.send("Couldn't find that beatmap.")
+                    return
+                add_request(channel, bm, author.name)
+                await message.channel.send(
+                    f"✅ Added to the queue: {bm['artist']} - {bm['title']} "
+                    f"[{bm['version']}] (⭐{bm['stars']})")
         except Exception as e:
             print(f'dispatch error ({name}):', e)
 

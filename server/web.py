@@ -132,6 +132,22 @@ def init_db():
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # beatmap requests queue
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS requests (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel      TEXT NOT NULL,
+                beatmap_id   TEXT,
+                title        TEXT,
+                artist       TEXT,
+                version      TEXT,
+                stars        TEXT,
+                url          TEXT,
+                requested_by TEXT,
+                status       TEXT DEFAULT 'pending',
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         # seed the default (built-in) commands for every existing channel
         for r in conn.execute('SELECT channel FROM channels').fetchall():
             seed_commands(conn, r['channel'])
@@ -147,6 +163,7 @@ DEFAULT_COMMANDS = [
     ('coinflip', 'fun', 'coinflip', None, 1, 'anyone'),
     ('uptime',   'utility', 'uptime',   None, 1, 'anyone'),
     ('so',       'utility', 'shoutout', None, 1, 'mods'),
+    ('request',  'utility', 'request',  None, 1, 'anyone'),
 ]
 
 
@@ -429,7 +446,7 @@ def dashboard():
         with db() as conn:
             try:
                 cmds = conn.execute(
-                    'SELECT name, type, kind, response, enabled, permission '
+                    'SELECT name, type, kind, response, enabled, permission, cooldown '
                     'FROM commands WHERE channel=? ORDER BY '
                     "CASE type WHEN 'osu' THEN 0 WHEN 'fun' THEN 1 "
                     "WHEN 'utility' THEN 2 ELSE 3 END, name",
@@ -446,10 +463,21 @@ def dashboard():
                     (row['channel'],)).fetchall()
             except sqlite3.OperationalError:
                 skins = []
+    reqs = []
+    if row:
+        with db() as conn:
+            try:
+                reqs = conn.execute(
+                    'SELECT id, beatmap_id, title, artist, version, stars, url, '
+                    'requested_by FROM requests '
+                    "WHERE channel=? AND status='pending' ORDER BY created_at ASC",
+                    (row['channel'],)).fetchall()
+            except sqlite3.OperationalError:
+                reqs = []
     return render_template('dashboard.html', row=row,
                            commands=[c for c in cmds if c['type'] != 'custom'],
                            custom_commands=[c for c in cmds if c['type'] == 'custom'],
-                           skins=skins, default_so=DEFAULT_SO_TEMPLATE)
+                           skins=skins, default_so=DEFAULT_SO_TEMPLATE, requests=reqs)
 
 
 @app.route('/skins/add', methods=['POST'])
@@ -531,7 +559,7 @@ def command_toggle():
 
 
 # names that can't be used for custom commands (built-ins + np)
-RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip', 'uptime', 'so', 'shoutout'}
+RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip', 'uptime', 'so', 'shoutout', 'request'}
 import re as _re
 
 
@@ -570,6 +598,74 @@ def command_add():
             (row['channel'], name, response, permission))
         conn.commit()
     return redirect(url_for('dashboard') + '#custom')
+
+
+@app.route('/requests/list')
+@login_required
+def requests_list():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return {'requests': []}
+    with db() as conn:
+        try:
+            rows = conn.execute(
+                'SELECT id, beatmap_id, title, artist, version, stars, url, '
+                'requested_by, created_at FROM requests '
+                "WHERE channel=? AND status='pending' ORDER BY created_at ASC",
+                (row['channel'],)).fetchall()
+        except sqlite3.OperationalError:
+            return {'requests': []}
+    return {'requests': [dict(r) for r in rows]}
+
+
+@app.route('/requests/done', methods=['POST'])
+@login_required
+def requests_done():
+    row = get_channel(session['twitch_id'])
+    rid = request.form.get('id')
+    if row and rid:
+        with db() as conn:
+            conn.execute("UPDATE requests SET status='done' WHERE id=? AND channel=?",
+                         (rid, row['channel']))
+            conn.commit()
+    return {'ok': True}
+
+
+@app.route('/requests/clear', methods=['POST'])
+@login_required
+def requests_clear():
+    row = get_channel(session['twitch_id'])
+    if row:
+        with db() as conn:
+            conn.execute("UPDATE requests SET status='done' WHERE channel=? AND status='pending'",
+                         (row['channel'],))
+            conn.commit()
+    return {'ok': True}
+
+
+@app.route('/command/settings', methods=['POST'])
+@login_required
+def command_settings():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return {'error': 'no channel'}, 403
+    name = (request.form.get('name') or '').strip()
+    permission = request.form.get('permission', 'anyone')
+    if permission not in ('anyone', 'subs', 'mods'):
+        permission = 'anyone'
+    try:
+        cooldown = max(0, min(int(request.form.get('cooldown', 5)), 3600))
+    except (TypeError, ValueError):
+        cooldown = 5
+    with db() as conn:
+        cur = conn.execute('SELECT 1 FROM commands WHERE channel=? AND name=?',
+                           (row['channel'], name)).fetchone()
+        if not cur:
+            return {'error': 'no command'}, 404
+        conn.execute('UPDATE commands SET permission=?, cooldown=? WHERE channel=? AND name=?',
+                     (permission, cooldown, row['channel'], name))
+        conn.commit()
+    return {'ok': True, 'name': name, 'permission': permission, 'cooldown': cooldown}
 
 
 @app.route('/command/so-template', methods=['POST'])

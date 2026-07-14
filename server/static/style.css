@@ -366,3 +366,12 @@ select.skin-input { cursor:pointer; }
   padding:var(--space-1) var(--space-3); border-radius:var(--radius-pill); cursor:pointer; transition:.15s;
 }
 .chip:hover { border-color:var(--pink); background:rgb(255 158 196 / .1); }
+
+/* expandable command rows */
+.cmd-head { cursor:pointer; }
+.row-chev { color:var(--muted); transition:transform .2s; margin-inline-start:2px; }
+.cmd-head.open .row-chev { transform:rotate(180deg); }
+.cmd-expand { flex-direction:column !important; margin-block-start:calc(-1 * var(--space-1)); gap:var(--space-3); }
+.cmd-divider { border:0; border-top:1px solid var(--line); margin:var(--space-2) 0; inline-size:100%; }
+.cd-input { inline-size:110px; }
+.cmd-settings { align-items:flex-end; }
