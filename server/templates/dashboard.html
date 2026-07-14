@@ -4,9 +4,9 @@
 <main class="container-xl py-4">
 
 {% if row['removed'] %}
-  <section class="narrow d-flex flex-column gap-3">
-    <div class="d-flex flex-column gap-2 text-center">
-      <span class="eyebrow justify-content-center"><i class="bi bi-stars"></i> {{ row['channel'] }}</span>
+  <section class="d-flex flex-column gap-3">
+    <div class="d-flex flex-column gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> {{ row['channel'] }}</span>
       <h2 class="m-0">The bot is removed <i class="bi bi-moon-stars-fill text-accent"></i></h2>
     </div>
     <div class="card p-4 d-flex flex-column gap-3">
@@ -14,7 +14,7 @@
       <form method="post" action="{{ url_for('readd_bot') }}"><button class="primary-button" type="submit"><i class="bi bi-arrow-repeat"></i> Add the bot back</button></form>
       <div class="d-flex flex-column gap-2 pt-3 border-top">
         <p class="text-muted-soft small-note m-0">The bot may still be a moderator (Twitch only lets you undo that). To strip mod status, run in your chat:</p>
-        <div class="mod-cmd d-flex align-items-center gap-2 p-2 narrow">
+        <div class="mod-cmd d-flex align-items-center gap-2 p-2">
           <code class="flex-grow-1 px-1">/unmod {{ bot_username }}</code>
           <button class="secondary-button btn-sm copybtn" type="button" data-cmd="/unmod {{ bot_username }}">Copy</button>
         </div>
@@ -23,9 +23,9 @@
   </section>
 
 {% elif not row['bot_joined'] %}
-  <section class="narrow d-flex flex-column gap-3">
-    <div class="d-flex flex-column gap-2 text-center">
-      <span class="eyebrow justify-content-center"><i class="bi bi-stars"></i> almost there, {{ row['channel'] }}</span>
+  <section class="d-flex flex-column gap-3">
+    <div class="d-flex flex-column gap-2">
+      <span class="eyebrow"><i class="bi bi-stars"></i> almost there, {{ row['channel'] }}</span>
       <h2 class="m-0">Add the bot to your channel <i class="bi bi-music-note-beamed text-accent"></i></h2>
     </div>
     <div class="card p-4 d-flex flex-column gap-3">
@@ -34,10 +34,10 @@
         <code class="flex-grow-1 px-1">/mod {{ bot_username }}</code>
         <button class="secondary-button btn-sm copybtn" type="button" data-cmd="/mod {{ bot_username }}">Copy</button>
       </div>
-      <div class="d-flex align-items-center justify-content-center gap-2">
+      <div class="d-flex align-items-center gap-2">
         <span class="spinner"></span><span class="text-muted-soft">Waiting for the bot to join…</span>
       </div>
-      <p class="text-muted-soft small-note text-center m-0">Unlocks on its own. If it doesn't, press <kbd>F5</kbd>.</p>
+      <p class="text-muted-soft small-note m-0">Unlocks on its own. If it doesn't, press <kbd>F5</kbd>.</p>
     </div>
   </section>
   <script>
@@ -47,114 +47,237 @@
   </script>
 
 {% else %}
-  <div class="d-flex flex-column gap-3">
+  {% set labels = {
+    'np':'Shows the map you\'re playing',
+    'skin':'Lists the skins you add below',
+    'recent':'Your most recent score',
+    'stats':'Your osu! profile stats',
+    '8ball':'Magic 8-ball answer',
+    'roll':'Random number (1–n)',
+    'coinflip':'Heads or tails',
+    'text':'Custom text response'
+  } %}
+  {% set typenames = {'osu':'osu! commands','fun':'Fun','utility':'Utility','custom':'Custom'} %}
 
-    <header class="d-flex align-items-center gap-3 flex-wrap pt-2">
-      <div class="d-flex flex-column gap-1">
-        <span class="eyebrow"><i class="bi bi-stars"></i> dashboard</span>
-        <h2 class="m-0">Hi, {{ row['channel'] }}! <i class="bi bi-record-circle text-accent"></i></h2>
-      </div>
-      <span class="status on ms-auto"><span class="dot"></span> Bot is in your channel</span>
-    </header>
+  <div class="dash-mobilebar d-lg-none">
+    <button class="hamburger" type="button" onclick="toggleSidebar()" aria-label="Menu"><i class="bi bi-list"></i></button>
+    <span class="fw-bold">{{ row['channel'] }}</span>
+  </div>
 
-    <!-- 1) TUTORIAL -->
-    <section class="card p-4 d-flex flex-column gap-3">
-      <div class="d-flex flex-column gap-1">
-        <h3 class="m-0"><i class="bi bi-stars text-accent"></i> Getting started</h3>
-        <p class="text-muted-soft m-0">Your bot is live! Here's the quick rundown:</p>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
-          <span class="pill-tag">step 1 · done ✓</span>
-          <p class="m-0 body-sm">You modded <strong>{{ bot_username }}</strong>, so it joined your chat automatically.</p></div></div>
-        <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
-          <span class="pill-tag">step 2 · link osu!</span>
-          <p class="m-0 body-sm">Link your osu! account below so <code class="cmd-code">!np</code> knows who you are.</p></div></div>
-        <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
-          <span class="pill-tag">step 3 · play</span>
-          <p class="m-0 body-sm">Type <code class="cmd-code">!np</code> in chat — it shows your latest map.</p></div></div>
-      </div>
-      <div class="pt-3 border-top">
-        <p class="text-muted-soft body-sm m-0"><strong class="text-white">Commands:</strong>
-          <code class="cmd-code">!np</code> shows your map · <code class="cmd-code">!np help</code> links here ·
-          <code class="cmd-code">!np on/off</code> toggles it.</p>
-      </div>
-    </section>
-
-    <!-- 2) osu! account -->
-    <section class="card p-4 d-flex flex-column align-items-start gap-3">
-      <div class="d-flex flex-column gap-1">
-        <h3 class="m-0"><i class="bi bi-record-circle text-accent"></i> osu! account</h3>
-        {% if row['osu_username'] %}
-          <p class="text-muted-soft body-sm m-0">Linked as <strong class="text-accent">{{ row['osu_username'] }}</strong> — <code class="cmd-code">!np</code> shows your last play automatically ♪</p>
-        {% else %}
-          <p class="text-muted-soft body-sm m-0">Link your osu! account and <code class="cmd-code">!np</code> works instantly. No download, no token.</p>
-        {% endif %}
-      </div>
-      {% if row['osu_username'] %}
-        <form method="post" action="{{ url_for('osu_unlink') }}"><button class="secondary-button btn-sm" type="submit"><i class="bi bi-x-lg"></i> Unlink</button></form>
-      {% else %}
-        <a class="primary-button btn-sm" href="{{ url_for('osu_login') }}"><i class="bi bi-record-circle"></i> Link osu!</a>
-      {% endif %}
-    </section>
-
-    <!-- 3) !np output -->
-    <section class="card p-4 d-flex flex-column gap-3">
-      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <h3 class="m-0"><i class="bi bi-palette-fill text-accent"></i> Your <code class="cmd-code">!np</code> output</h3>
-        <div class="d-flex align-items-center gap-2">
-          {% if row['enabled'] %}<span class="status on"><span class="dot"></span> on</span>{% else %}<span class="status off"><span class="dot"></span> off</span>{% endif %}
-          <a class="secondary-button btn-sm" href="{{ url_for('settings') }}"><i class="bi bi-pencil-fill"></i> Edit</a>
+  <div class="dash-shell">
+    <aside class="dash-sidebar" id="sidebar">
+      <div class="dash-brand d-flex align-items-center gap-2">
+        <span class="brand-ring"></span>
+        <div class="d-flex flex-column">
+          <span class="fw-bold">{{ row['channel'] }}</span>
+          <span class="status on"><span class="dot"></span> Bot online</span>
         </div>
       </div>
-      <p class="mono text-muted-soft small-note m-0 text-break">{{ row['np_template'] }}</p>
-    </section>
+      <nav class="dash-nav">
+        <button class="dash-navitem active" type="button" data-panel="commands"><i class="bi bi-terminal-fill"></i> Commands</button>
+        <button class="dash-navitem" type="button" data-panel="osu"><i class="bi bi-record-circle"></i> osu! Account</button>
+        <button class="dash-navitem" type="button" data-panel="agent"><i class="bi bi-music-note-beamed"></i> Agent</button>
+        <button class="dash-navitem" type="button" data-panel="settings"><i class="bi bi-gear-fill"></i> Settings</button>
+      </nav>
+    </aside>
 
-    <!-- 4) AGENT accordion -->
-    <div class="accordion" id="agentAcc">
-      <div class="accordion-item">
-        <h3 class="accordion-header">
-          <button class="accordion-button collapsed d-flex align-items-center gap-2" type="button" data-bs-toggle="collapse" data-bs-target="#agentBody">
-            <i class="bi bi-music-note-beamed text-accent"></i> Live mode &amp; agent token
-            <span class="pill-tag ms-2">optional</span>
-          </button>
-        </h3>
-        <div id="agentBody" class="accordion-collapse collapse" data-bs-parent="#agentAcc">
-          <div class="accordion-body d-flex flex-column gap-3">
-            <p class="text-muted-soft body-sm m-0">Instant mode (osu! link above) shows your <em>last</em> play. Want the exact map you're on <strong>mid-run</strong>, in real time? Run the little agent next to <a href="https://github.com/tosuapp/tosu" target="_blank" rel="noopener">tosu</a>. Most people don't need this.</p>
-            <div class="d-flex flex-column gap-2">
-              <span class="fw-bold body-sm">Your agent token</span>
-              <p class="text-muted-soft small-note m-0">Click the token to copy it — it stays hidden. Keep it private.</p>
-              <div class="d-flex align-items-center gap-2">
-                <code class="token blurred flex-grow-1 p-2 token-copy" id="tok" title="Click to copy" onclick="copyTok()">{{ row['pair_token'] }}</code>
-                <button class="secondary-button btn-sm" type="button" id="tokbtn" onclick="toggleTok()"><i class="bi bi-eye-fill"></i> Show</button>
-              </div>
-              <span class="ctl-copied small-note" id="tokCopied" hidden><i class="bi bi-check-circle-fill"></i> Copied to clipboard</span>
+    <div class="dash-content">
+
+      <!-- COMMANDS -->
+      <section class="dash-panel active" data-panel="commands">
+        <div class="panel-head">
+          <h2 class="m-0">Commands</h2>
+          <p class="text-muted-soft m-0">Toggle what your viewers can use. Changes apply instantly.</p>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div class="d-flex flex-column gap-1">
+              <h3 class="m-0"><code class="cmd-code">!np</code> output</h3>
+              <p class="text-muted-soft small-note m-0">The star of the show — your now-playing line.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-              <a class="primary-button btn-sm" href="https://github.com/JustKyrix/onp/releases/latest" target="_blank" rel="noopener"><i class="bi bi-download"></i> Download agent</a>
-              <a class="secondary-button btn-sm" href="https://github.com/tosuapp/tosu" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Get tosu</a>
-              <form method="post" action="{{ url_for('regenerate') }}"><button class="secondary-button btn-sm" type="submit"><i class="bi bi-arrow-repeat"></i> Regenerate</button></form>
+            <div class="d-flex align-items-center gap-2">
+              {% if row['enabled'] %}<span class="status on"><span class="dot"></span> on</span>{% else %}<span class="status off"><span class="dot"></span> off</span>{% endif %}
+              <a class="secondary-button btn-sm" href="{{ url_for('settings') }}"><i class="bi bi-pencil-fill"></i> Edit</a>
             </div>
           </div>
+          <p class="mono text-muted-soft small-note m-0 text-break">{{ row['np_template'] }}</p>
         </div>
-      </div>
+
+        {% set ns = namespace(current='') %}
+        {% for c in commands %}
+          {% if c['type'] != ns.current %}
+            {% set ns.current = c['type'] %}
+            <h3 class="cmd-group-title">{{ typenames.get(c['type'], c['type']) }}</h3>
+          {% endif %}
+          {% if c['kind'] == 'skin' %}
+            <div class="cmd-row card p-3 skin-head" onclick="toggleSkinMgr(this)" role="button">
+              <div class="d-flex flex-column gap-1 flex-grow-1">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <code class="cmd-code">!{{ c['name'] }}</code>
+                  <span class="who-tag">{{ c['permission'] }}</span>
+                  <i class="bi bi-chevron-down chev skin-chev"></i>
+                </div>
+                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
+              </div>
+              <label class="switch" title="Enable / disable" onclick="event.stopPropagation()">
+                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="skin-mgr card p-4" id="skinMgr" hidden>
+              <form method="post" action="{{ url_for('skin_add') }}" class="d-flex flex-column gap-3">
+                <div class="d-flex flex-column gap-2">
+                  <label class="fw-bold body-sm" for="sk-title">Skin name</label>
+                  <input class="skin-input" id="sk-title" name="title" maxlength="80" placeholder="e.g. My aim skin" required>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                  <label class="fw-bold body-sm" for="sk-link">Link</label>
+                  <input class="skin-input" id="sk-link" name="link" maxlength="400" placeholder="https://link-to-your-skin" required>
+                </div>
+                <button class="primary-button btn-sm align-self-start" type="submit"><i class="bi bi-plus-lg"></i> Add skin</button>
+              </form>
+
+              {% if skins %}
+                <div class="skin-list mt-4 d-flex flex-column gap-2">
+                  {% for sk in skins %}
+                    <div class="skin-line card p-3 d-flex align-items-center gap-3">
+                      <div class="d-flex flex-column gap-1 flex-grow-1">
+                        <span class="fw-bold">{{ sk['title'] }}</span>
+                        {% if sk['link'] %}<a class="skin-line-link small-note" href="{{ sk['link'] }}" target="_blank" rel="noopener">{{ sk['link'] }}</a>{% endif %}
+                      </div>
+                      <form method="post" action="{{ url_for('skin_delete') }}" onsubmit="return confirm('Delete this skin?');">
+                        <input type="hidden" name="id" value="{{ sk['id'] }}">
+                        <button class="icon-btn" type="submit" title="Delete"><i class="bi bi-trash3"></i></button>
+                      </form>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="cmd-row card p-3">
+              <div class="d-flex flex-column gap-1 flex-grow-1">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <code class="cmd-code">!{{ c['name'] }}</code>
+                  <span class="who-tag">{{ c['permission'] }}</span>
+                </div>
+                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
+              </div>
+              <label class="switch" title="Enable / disable">
+                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </section>
+
+      <!-- osu! ACCOUNT -->
+      <section class="dash-panel" data-panel="osu">
+        <div class="panel-head">
+          <h2 class="m-0">osu! Account</h2>
+          <p class="text-muted-soft m-0">Link osu! so commands know who you are.</p>
+        </div>
+        <div class="card p-4 d-flex flex-column align-items-start gap-3">
+          {% if row['osu_username'] %}
+            <p class="text-muted-soft m-0">Linked as <strong class="text-accent">{{ row['osu_username'] }}</strong> — <code class="cmd-code">!np</code>, <code class="cmd-code">!rs</code> and <code class="cmd-code">!stats</code> all work automatically ♪</p>
+            <form method="post" action="{{ url_for('osu_unlink') }}"><button class="secondary-button btn-sm" type="submit"><i class="bi bi-x-lg"></i> Unlink</button></form>
+          {% else %}
+            <p class="text-muted-soft m-0">Link your osu! account and the osu! commands work instantly. No download, no token.</p>
+            <a class="primary-button btn-sm" href="{{ url_for('osu_login') }}"><i class="bi bi-record-circle"></i> Link osu!</a>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- AGENT -->
+      <section class="dash-panel" data-panel="agent">
+        <div class="panel-head">
+          <h2 class="m-0">Agent <span class="pill-tag">optional</span></h2>
+          <p class="text-muted-soft m-0">Live mode — shows the exact map mid-run. Most people don't need this.</p>
+        </div>
+        <div class="card p-4 d-flex flex-column gap-3">
+          <p class="text-muted-soft body-sm m-0">Instant mode (osu! link) shows your <em>last</em> play. Want the exact map you're on <strong>mid-run</strong>, in real time? Run the little agent next to <a href="https://github.com/tosuapp/tosu" target="_blank" rel="noopener">tosu</a>.</p>
+          <div class="d-flex flex-column gap-2">
+            <span class="fw-bold body-sm">Your agent token</span>
+            <p class="text-muted-soft small-note m-0">Click the token to copy it — it stays hidden. Keep it private.</p>
+            <div class="d-flex align-items-center gap-2">
+              <code class="token blurred flex-grow-1 p-2 token-copy" id="tok" title="Click to copy" onclick="copyTok()">{{ row['pair_token'] }}</code>
+              <button class="secondary-button btn-sm" type="button" id="tokbtn" onclick="toggleTok()"><i class="bi bi-eye-fill"></i> Show</button>
+            </div>
+            <span class="ctl-copied small-note" id="tokCopied" hidden><i class="bi bi-check-circle-fill"></i> Copied to clipboard</span>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="primary-button btn-sm" href="https://github.com/JustKyrix/onp/releases/latest" target="_blank" rel="noopener"><i class="bi bi-download"></i> Download agent</a>
+            <a class="secondary-button btn-sm" href="https://github.com/tosuapp/tosu" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Get tosu</a>
+            <form method="post" action="{{ url_for('regenerate') }}"><button class="secondary-button btn-sm" type="submit"><i class="bi bi-arrow-repeat"></i> Regenerate</button></form>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="dash-panel" data-panel="settings">
+        <div class="panel-head">
+          <h2 class="m-0">Settings</h2>
+          <p class="text-muted-soft m-0">Getting started and channel controls.</p>
+        </div>
+        <div class="card p-4 d-flex flex-column gap-3">
+          <h3 class="m-0"><i class="bi bi-stars text-accent"></i> Quick start</h3>
+          <div class="row g-3">
+            <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
+              <span class="pill-tag">step 1 · done ✓</span>
+              <p class="m-0 body-sm">You modded <strong>{{ bot_username }}</strong>, so it joined your chat.</p></div></div>
+            <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
+              <span class="pill-tag">step 2 · link osu!</span>
+              <p class="m-0 body-sm">Link osu! in the osu! Account tab.</p></div></div>
+            <div class="col-md-4"><div class="d-flex flex-column gap-2 align-items-start">
+              <span class="pill-tag">step 3 · play</span>
+              <p class="m-0 body-sm">Type <code class="cmd-code">!np</code> in chat — it shows your map.</p></div></div>
+          </div>
+        </div>
+
+        <div class="card danger-card p-4 d-flex flex-column align-items-start gap-3">
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0">Remove the bot</h3>
+            <p class="text-muted-soft body-sm m-0">Unmods ONP and makes it leave. It won't rejoin until you add it back.</p>
+          </div>
+          <form method="post" action="{{ url_for('remove_bot') }}" onsubmit="return confirm('Remove the bot from your channel?');">
+            <button class="accent-button btn-sm" type="submit"><i class="bi bi-trash3-fill"></i> Remove bot</button>
+          </form>
+        </div>
+      </section>
+
     </div>
-
-    <!-- 5) danger -->
-    <section class="card danger-card p-4 d-flex flex-column align-items-start gap-3">
-      <div class="d-flex flex-column gap-1">
-        <h3 class="m-0">Remove the bot</h3>
-        <p class="text-muted-soft body-sm m-0">Unmods ONP and makes it leave. It won't rejoin until you add it back.</p>
-      </div>
-      <form method="post" action="{{ url_for('remove_bot') }}" onsubmit="return confirm('Remove the bot from your channel?');">
-        <button class="accent-button btn-sm" type="submit"><i class="bi bi-trash3-fill"></i> Remove bot</button>
-      </form>
-    </section>
-
   </div>
 
   <script>
+    // panel switching
+    document.querySelectorAll('.dash-navitem').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const p = btn.dataset.panel;
+        document.querySelectorAll('.dash-navitem').forEach(b=>b.classList.toggle('active', b===btn));
+        document.querySelectorAll('.dash-panel').forEach(s=>s.classList.toggle('active', s.dataset.panel===p));
+        document.getElementById('sidebar').classList.remove('open'); // close on mobile after pick
+      });
+    });
+    function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
+
+    // expandable !skin manager
+    function toggleSkinMgr(row){
+      const mgr = document.getElementById('skinMgr');
+      mgr.hidden = !mgr.hidden;
+      row.classList.toggle('open', !mgr.hidden);
+    }
+    // after adding a skin, reopen the manager so the list is visible
+    window.addEventListener('DOMContentLoaded', function(){
+      if(location.hash === '#skinopen'){
+        const mgr = document.getElementById('skinMgr');
+        const head = document.querySelector('.skin-head');
+        if(mgr){ mgr.hidden = false; if(head) head.classList.add('open'); }
+      }
+    });
+
+    // token show / copy
     function toggleTok(){
       const t=document.getElementById('tok'), b=document.getElementById('tokbtn');
       const hidden=t.classList.toggle('blurred');
@@ -164,10 +287,22 @@
     function copyTok(){
       const t=document.getElementById('tok');
       navigator.clipboard.writeText(t.textContent.trim());
-      const c=document.getElementById('tokCopied');
-      c.hidden=false;
-      clearTimeout(tokCopiedTimer);
-      tokCopiedTimer=setTimeout(()=>{ c.hidden=true; }, 2000);
+      const c=document.getElementById('tokCopied'); c.hidden=false;
+      clearTimeout(tokCopiedTimer); tokCopiedTimer=setTimeout(()=>{ c.hidden=true; }, 2000);
+    }
+
+    // command enable/disable
+    async function toggleCmd(input){
+      const name=input.dataset.cmd;
+      input.disabled=true;
+      try{
+        const r=await fetch('{{ url_for("command_toggle") }}',{
+          method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:'name='+encodeURIComponent(name)});
+        const d=await r.json();
+        if(d.error){ input.checked=!input.checked; }   // revert on failure
+      }catch(e){ input.checked=!input.checked; }
+      input.disabled=false;
     }
   </script>
 {% endif %}
