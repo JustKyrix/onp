@@ -1,0 +1,4 @@
+pywebview
+requests
+pystray
+pillow

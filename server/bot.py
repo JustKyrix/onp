@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import random
 import asyncio
 import sqlite3
 import requests
@@ -220,6 +221,102 @@ def render_np(template, play):
         return f"{data.get('artist','?')} - {data.get('title','?')} [{data.get('diff','?')}]"
 
 
+
+def osu_recent(osu_id):
+    """Richer recent-score details for the !rs command."""
+    try:
+        scores = osu_get(
+            f'users/{osu_id}/scores/recent?include_fails=1&mode=osu&limit=1').json()
+    except Exception:
+        return None
+    if not scores:
+        return None
+    s = scores[0]
+    bs, bm = s.get('beatmapset', {}), s.get('beatmap', {})
+    return {
+        'artist': bs.get('artist', '?'), 'title': bs.get('title', '?'),
+        'diff': bm.get('version', '?'),
+        'rank': s.get('rank', '?'),
+        'acc': round((s.get('accuracy') or 0) * 100, 2),
+        'pp': round(s.get('pp') or 0, 2),
+        'combo': s.get('max_combo', '?'),
+        'mods': ''.join(s.get('mods', [])) or 'None',
+        'url': bm.get('url', ''),
+    }
+
+
+def osu_user(osu_id):
+    """Profile stats for the !stats command."""
+    try:
+        u = osu_get(f'users/{osu_id}/osu').json()
+    except Exception:
+        return None
+    st = u.get('statistics', {}) or {}
+    lvl = (st.get('level') or {}).get('current')
+    return {
+        'username': u.get('username', '?'),
+        'pp': round(st.get('pp', 0) or 0),
+        'rank': st.get('global_rank'),
+        'crank': st.get('country_rank'),
+        'country': u.get('country_code', ''),
+        'acc': round(st.get('hit_accuracy', 0) or 0, 2),
+        'playcount': st.get('play_count', 0),
+        'level': lvl,
+    }
+
+
+# ---------- command system (DB-driven) ----------
+def list_commands(channel):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT name, type, kind, response, enabled, permission, cooldown '
+                'FROM commands WHERE channel=?', (channel,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+
+def list_skins(channel):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT title, link FROM skins WHERE channel=? ORDER BY created_at DESC',
+                (channel,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
+
+
+def get_command(channel, name):
+    with db() as conn:
+        try:
+            return conn.execute(
+                'SELECT name, type, kind, response, enabled, permission, cooldown '
+                'FROM commands WHERE channel=? AND name=?', (channel, name)).fetchone()
+        except sqlite3.OperationalError:
+            return None
+
+
+_COOLDOWNS = {}   # (channel, name) -> last-used epoch
+
+
+def _on_cooldown(channel, name, secs):
+    key = (channel, name)
+    now = time.time()
+    last = _COOLDOWNS.get(key, 0)
+    if now - last < (secs or 0):
+        return True
+    _COOLDOWNS[key] = now
+    return False
+
+
+EIGHTBALL = [
+    "It is certain.", "Without a doubt.", "Yes, definitely.", "Most likely.",
+    "Signs point to yes.", "Reply hazy, try again.", "Ask again later.",
+    "Better not tell you now.", "Don't count on it.", "My reply is no.",
+    "Very doubtful.", "Outlook not so good.",
+]
+
+
 # ---------- the bot ----------
 class Bot(commands.Bot):
     def __init__(self, tokens, bot_id, channels):
@@ -233,6 +330,102 @@ class Bot(commands.Bot):
         print(f'✅ {self.nick} online | joined {len(self.joined)} channels')
         self.loop.create_task(self.poll_modded())
         self.loop.create_task(self.start_web())
+
+    async def event_command_error(self, ctx, error):
+        # dynamic (DB) commands aren't registered as twitchio commands; ignore "not found"
+        if isinstance(error, commands.CommandNotFound):
+            return
+        print('command error:', error)
+
+    async def event_message(self, message):
+        if message.echo:
+            return
+        # let decorated commands (!np) run first
+        await self.handle_commands(message)
+        content = (message.content or '').strip()
+        if not content.startswith('!'):
+            return
+        parts = content[1:].split()
+        if not parts:
+            return
+        name = parts[0].lower()
+        if name == 'np':          # handled by the @command decorator
+            return
+        await self.dispatch_command(message, name, parts[1:])
+
+    async def dispatch_command(self, message, name, args):
+        channel = message.channel.name
+        cmd = get_command(channel, name)
+        if not cmd or not cmd['enabled']:
+            return
+        author = message.author
+        is_mod = bool(getattr(author, 'is_mod', False))
+        is_bc = bool(getattr(author, 'is_broadcaster', False))
+        is_sub = bool(getattr(author, 'is_subscriber', False))
+        perm = cmd['permission']
+        if perm == 'mods' and not (is_mod or is_bc):
+            return
+        if perm == 'subs' and not (is_sub or is_mod or is_bc):
+            return
+        if _on_cooldown(channel, name, cmd['cooldown']):
+            return
+
+        kind = cmd['kind']
+        try:
+            if kind == 'text':
+                if cmd['response']:
+                    await message.channel.send(cmd['response'])
+            elif kind == '8ball':
+                q = ' '.join(args)
+                await message.channel.send(f"🎱 {random.choice(EIGHTBALL)}")
+            elif kind == 'coinflip':
+                await message.channel.send(f"🪙 {random.choice(['Heads', 'Tails'])}!")
+            elif kind == 'roll':
+                try:
+                    hi = int(args[0]) if args else 100
+                except ValueError:
+                    hi = 100
+                hi = max(1, min(hi, 1000000))
+                await message.channel.send(f"🎲 {author.name} rolled {random.randint(1, hi)}")
+            elif kind == 'recent':
+                osu_id = get_osu_id(channel)
+                if not osu_id:
+                    await message.channel.send("This streamer hasn't linked an osu! account.")
+                    return
+                r = osu_recent(osu_id)
+                if not r:
+                    await message.channel.send("No recent plays found.")
+                    return
+                await message.channel.send(
+                    f"🎮 Recent: {r['artist']} - {r['title']} [{r['diff']}] | "
+                    f"{r['rank']} {r['acc']}% {r['combo']}x | {r['pp']}pp | "
+                    f"Mods: {r['mods']} | {r['url']}")
+            elif kind == 'stats':
+                osu_id = get_osu_id(channel)
+                if not osu_id:
+                    await message.channel.send("This streamer hasn't linked an osu! account.")
+                    return
+                u = osu_user(osu_id)
+                if not u:
+                    await message.channel.send("Couldn't fetch stats right now.")
+                    return
+                rank = f"#{u['rank']:,}" if u['rank'] else "unranked"
+                crank = f" ({u['country']} #{u['crank']:,})" if u['crank'] else ""
+                await message.channel.send(
+                    f"📊 {u['username']}: {u['pp']:,}pp | {rank}{crank} | "
+                    f"{u['acc']}% acc | {u['playcount']:,} plays")
+            elif kind == 'skin':
+                skins = list_skins(channel)
+                if not skins:
+                    await message.channel.send("🎨 This streamer hasn't added any skins yet.")
+                    return
+                parts = []
+                for s in skins:
+                    parts.append(f"{s['title']} ({s['link']})" if s['link'] else s['title'])
+                msg = "🎨 Skins: " + " | ".join(parts)
+                await message.channel.send(msg[:490])
+        except Exception as e:
+            print(f'dispatch error ({name}):', e)
 
     # --- !np and friends ---
     @commands.command(name='np')

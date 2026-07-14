@@ -240,3 +240,117 @@ kbd { background:var(--ink); border:1px solid var(--line-2); border-block-end-wi
 .token-copy { cursor:pointer; transition:border-color .15s; }
 .token-copy:hover { border-color:var(--pink); }
 .ctl-copied { color:var(--ok); font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+
+/* ============ dashboard sidebar shell ============ */
+.dash-shell { display:flex; gap:var(--space-5); align-items:flex-start; }
+.dash-sidebar {
+  flex:0 0 320px; position:sticky; top:var(--space-4);
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg);
+  padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-4);
+}
+.dash-brand { padding-block-end:var(--space-3); border-bottom:1px solid var(--line); }
+.brand-ring { inline-size:32px; block-size:32px; border-radius:50%; background:var(--grad);
+  box-shadow:0 0 0 4px rgb(255 110 165 / .14); flex:0 0 auto; }
+.dash-nav { display:flex; flex-direction:column; gap:var(--space-1); }
+.dash-navitem {
+  display:flex; align-items:center; gap:var(--space-3); inline-size:100%;
+  background:transparent; border:0; color:var(--muted); text-align:start;
+  font-family:'Nunito',sans-serif; font-weight:700; font-size:1rem;
+  padding:var(--space-3) var(--space-4); border-radius:var(--radius-sm); cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.dash-navitem:hover { background:rgb(255 255 255 / .04); color:var(--soft); }
+.dash-navitem.active { background:var(--grad); color:#fff; box-shadow:var(--glow); }
+.dash-navitem i { font-size:1.05rem; }
+.dash-content { flex:1 1 auto; min-inline-size:0; display:flex; flex-direction:column; gap:var(--space-4); }
+.dash-panel { display:none; flex-direction:column; gap:var(--space-3); }
+.dash-panel.active { display:flex; animation:panelIn .2s ease; }
+@keyframes panelIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.panel-head { display:flex; flex-direction:column; gap:var(--space-1); padding-block-end:var(--space-2); }
+.cmd-group-title { margin:var(--space-3) 0 0; font-size:var(--fs-h3); color:var(--pink); }
+.cmd-row { display:flex; flex-direction:row; align-items:center; gap:var(--space-3); text-align:start; }
+
+/* mobile top bar + hamburger */
+.dash-mobilebar { display:flex; align-items:center; gap:var(--space-3); margin-block-end:var(--space-3); }
+.hamburger { background:var(--panel); border:1px solid var(--line-2); color:var(--soft);
+  border-radius:var(--radius-sm); inline-size:42px; block-size:42px; font-size:1.3rem; cursor:pointer; }
+.hamburger:hover { border-color:var(--pink); }
+
+@media (max-width: 991.98px) {
+  .dash-sidebar {
+    position:fixed; inset-block:0; inset-inline-start:0; z-index:60;
+    inline-size:min(340px, 88vw); border-radius:0; transform:translateX(-105%);
+    transition:transform .22s ease; overflow:auto;
+  }
+  .dash-sidebar.open { transform:none; box-shadow:0 0 60px rgb(0 0 0 / .5); }
+}
+
+/* toggle switch (dashboard) */
+.switch { position:relative; display:inline-block; inline-size:44px; block-size:24px; flex:0 0 auto; }
+.switch input { opacity:0; inline-size:0; block-size:0; }
+.switch .slider { position:absolute; inset:0; background:var(--panel-2); border:1px solid var(--line-2);
+  border-radius:var(--radius-pill); cursor:pointer; transition:.2s; }
+.switch .slider::before { content:""; position:absolute; inline-size:16px; block-size:16px; inset-block-start:3px; inset-inline-start:3px;
+  background:var(--muted); border-radius:50%; transition:.2s; }
+.switch input:checked + .slider { background:var(--rasp); border-color:var(--rasp); }
+.switch input:checked + .slider::before { transform:translateX(20px); background:#fff; }
+.switch input:disabled + .slider { opacity:.5; }
+
+/* ============ skins panel ============ */
+.skin-input {
+  background:var(--ink); border:1px solid var(--line-2); color:var(--soft);
+  border-radius:var(--radius-sm); padding:var(--space-3); font-family:'Nunito',sans-serif;
+  font-size:.92rem; inline-size:100%;
+}
+.skin-input:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px rgb(255 158 196 / .18); }
+.skin-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:var(--space-4);
+}
+.skin-card { display:flex; flex-direction:column; overflow:hidden; padding:0; }
+.skin-thumb { aspect-ratio:16/10; background:var(--ink); overflow:hidden; }
+.skin-thumb img { inline-size:100%; block-size:100%; object-fit:cover; display:block; }
+.skin-noimg {
+  inline-size:100%; block-size:100%; display:flex; align-items:center; justify-content:center;
+  color:var(--muted); font-size:2rem; background:linear-gradient(135deg,var(--panel),var(--panel-2));
+}
+.skin-body { display:flex; flex-direction:column; gap:var(--space-2); padding:var(--space-4); flex:1; }
+.icon-btn {
+  background:transparent; border:1px solid var(--line-2); color:var(--muted);
+  border-radius:var(--radius-sm); inline-size:34px; block-size:34px; cursor:pointer; transition:.15s;
+}
+.icon-btn:hover { border-color:var(--rasp); color:var(--rasp); }
+
+/* collapsible skin manager inside Commands */
+.skin-collapse-head {
+  display:flex; align-items:center; justify-content:space-between; inline-size:100%;
+  background:transparent; border:0; color:var(--soft); cursor:pointer;
+  font-family:'Fredoka',sans-serif; font-weight:600; font-size:1rem;
+  padding:var(--space-4);
+}
+.skin-collapse-head .chev { color:var(--muted); transition:transform .2s; }
+.skin-collapse-head.open .chev { transform:rotate(180deg); }
+.skin-collapse-body { padding:0 var(--space-4) var(--space-4); }
+
+/* expandable !skin manager */
+.skin-head { cursor:pointer; }
+.skin-chev { color:var(--muted); transition:transform .2s; margin-inline-start:2px; }
+.skin-head.open .skin-chev { transform:rotate(180deg); }
+.skin-mgr { margin-block-start:calc(-1 * var(--space-1)); }
+.skin-prev { inline-size:96px; block-size:60px; object-fit:cover; border-radius:var(--radius-sm);
+  border:1px solid var(--line-2); background:var(--ink); }
+
+/* the hidden attribute must always win over Bootstrap's .d-flex/.card display */
+[hidden] { display: none !important; }
+
+/* skin list (name + link rows) */
+.skin-line-link { color:var(--rasp-lite); word-break:break-all; }
+.skin-line-link:hover { color:var(--pink); }
+
+/* skin line: force horizontal, left-aligned (override Bootstrap .card column) */
+.skin-line { flex-direction:row !important; align-items:center; text-align:start; }
+.skin-line .icon-btn { flex:0 0 auto; }
+
+/* GLOBAL: never center card contents unless explicitly asked.
+   .card defaults to flex-column which + Bootstrap can stack/center children. */
+.card { align-items:stretch; text-align:start; }

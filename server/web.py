@@ -7,6 +7,7 @@ from flask import (Flask, request, redirect, session,
                    render_template, url_for, flash, Response)
 import requests
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
 
 
 # project root = the folder ABOVE this server/ folder (where .env lives)
@@ -54,6 +55,16 @@ app.secret_key = os.environ.get('FLASK_SECRET', secrets.token_hex(16))
 # behind Plesk/nginx reverse proxy: trust X-Forwarded-* so Flask knows it's HTTPS
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+# skin preview image uploads
+SKIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'skins')
+os.makedirs(SKIN_DIR, exist_ok=True)
+ALLOWED_IMG = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024  # 4 MB cap on uploads
+
+
+def _allowed_img(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMG
+
 
 # ---------- database ----------
 def db():
@@ -88,6 +99,57 @@ def init_db():
             conn.execute('ALTER TABLE channels ADD COLUMN osu_id TEXT')
         if 'osu_username' not in cols:
             conn.execute('ALTER TABLE channels ADD COLUMN osu_username TEXT')
+
+        # command system: every command a channel has is a row here
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS commands (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel     TEXT NOT NULL,
+                name        TEXT NOT NULL,
+                type        TEXT NOT NULL DEFAULT 'custom',
+                kind        TEXT NOT NULL DEFAULT 'text',
+                response    TEXT,
+                enabled     INTEGER DEFAULT 1,
+                permission  TEXT DEFAULT 'anyone',
+                cooldown    INTEGER DEFAULT 5,
+                UNIQUE(channel, name)
+            )
+        ''')
+        # skins: a channel's showcase of skins (info + link, optional image)
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS skins (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel     TEXT NOT NULL,
+                title       TEXT NOT NULL,
+                description TEXT,
+                image       TEXT,
+                link        TEXT,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        # seed the default (built-in) commands for every existing channel
+        for r in conn.execute('SELECT channel FROM channels').fetchall():
+            seed_commands(conn, r['channel'])
+
+
+# built-in commands seeded for every channel: (name, type, kind, response, enabled, permission)
+DEFAULT_COMMANDS = [
+    ('skin',     'osu', 'skin',     None, 1, 'anyone'),
+    ('rs',       'osu', 'recent',   None, 1, 'anyone'),
+    ('stats',    'osu', 'stats',    None, 1, 'anyone'),
+    ('8ball',    'fun', '8ball',    None, 1, 'anyone'),
+    ('roll',     'fun', 'roll',     None, 1, 'anyone'),
+    ('coinflip', 'fun', 'coinflip', None, 1, 'anyone'),
+]
+
+
+def seed_commands(conn, channel):
+    for name, type_, kind, resp, en, perm in DEFAULT_COMMANDS:
+        conn.execute(
+            'INSERT OR IGNORE INTO commands '
+            '(channel, name, type, kind, response, enabled, permission) '
+            'VALUES (?,?,?,?,?,?,?)',
+            (channel, name, type_, kind, resp, en, perm))
 
 
 def get_channel(twitch_id):
@@ -190,10 +252,10 @@ def robots():
 
 @app.route('/sitemap.xml')
 def sitemap():
-    # only public, indexable pages
-    pages = ['/', '/#features', '/#how', '/#commands', '/#contact']
+    # only real, crawlable pages (anchors like /#features are the same URL)
+    pages = ['/']
     urls = ''.join(
-        f'  <url><loc>{SITE_URL}{p}</loc><changefreq>weekly</changefreq></url>\n'
+        f'  <url><loc>{SITE_URL}{p}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
         for p in pages)
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -259,6 +321,7 @@ def callback():
                 'INSERT INTO channels (channel, twitch_id, pair_token, np_template) '
                 'VALUES (?,?,?,?)',
                 (channel, twitch_id, secrets.token_urlsafe(24), DEFAULT_TEMPLATE))
+            seed_commands(conn, channel)
         else:
             # fill in the bits the bot couldn't know; don't clobber existing values
             conn.execute(
@@ -354,7 +417,107 @@ def logout():
 @login_required
 def dashboard():
     row = get_channel(session['twitch_id'])
-    return render_template('dashboard.html', row=row)
+    cmds = []
+    if row:
+        with db() as conn:
+            try:
+                cmds = conn.execute(
+                    'SELECT name, type, kind, response, enabled, permission '
+                    'FROM commands WHERE channel=? ORDER BY '
+                    "CASE type WHEN 'osu' THEN 0 WHEN 'fun' THEN 1 "
+                    "WHEN 'utility' THEN 2 ELSE 3 END, name",
+                    (row['channel'],)).fetchall()
+            except sqlite3.OperationalError:
+                cmds = []
+    skins = []
+    if row:
+        with db() as conn:
+            try:
+                skins = conn.execute(
+                    'SELECT id, title, description, image, link FROM skins '
+                    'WHERE channel=? ORDER BY created_at DESC',
+                    (row['channel'],)).fetchall()
+            except sqlite3.OperationalError:
+                skins = []
+    return render_template('dashboard.html', row=row, commands=cmds, skins=skins)
+
+
+@app.route('/skins/add', methods=['POST'])
+@login_required
+def skin_add():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    title = (request.form.get('title') or '').strip()[:80]
+    if not title:
+        flash('A skin needs at least a title.')
+        return redirect(url_for('dashboard'))
+    description = (request.form.get('description') or '').strip()[:300]
+    link = (request.form.get('link') or '').strip()[:400]
+
+    image_rel = None
+    file = request.files.get('image')
+    if file and file.filename:
+        if not _allowed_img(file.filename):
+            flash('Image must be a png, jpg, gif or webp.')
+            return redirect(url_for('dashboard'))
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        fname = f"{secrets.token_hex(8)}.{ext}"
+        file.save(os.path.join(SKIN_DIR, fname))
+        image_rel = f"skins/{fname}"
+
+    with db() as conn:
+        conn.execute(
+            'INSERT INTO skins (channel, title, description, image, link) '
+            'VALUES (?,?,?,?,?)',
+            (row['channel'], title, description, image_rel, link))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#skinopen')
+
+
+@app.route('/skins/delete', methods=['POST'])
+@login_required
+def skin_delete():
+    row = get_channel(session['twitch_id'])
+    sid = request.form.get('id')
+    if row and sid:
+        with db() as conn:
+            s = conn.execute('SELECT image FROM skins WHERE id=? AND channel=?',
+                             (sid, row['channel'])).fetchone()
+            if s:
+                if s['image']:
+                    try:
+                        os.remove(os.path.join(os.path.dirname(SKIN_DIR),
+                                               s['image']))
+                    except OSError:
+                        pass
+                conn.execute('DELETE FROM skins WHERE id=? AND channel=?',
+                             (sid, row['channel']))
+                conn.commit()
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/command/toggle', methods=['POST'])
+@login_required
+def command_toggle():
+    name = (request.form.get('name') or request.json.get('name') if request.is_json
+            else request.form.get('name'))
+    if not name:
+        return {'error': 'no name'}, 400
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return {'error': 'no channel'}, 403
+    with db() as conn:
+        cur = conn.execute(
+            'SELECT enabled FROM commands WHERE channel=? AND name=?',
+            (row['channel'], name)).fetchone()
+        if not cur:
+            return {'error': 'no command'}, 404
+        new = 0 if cur['enabled'] else 1
+        conn.execute('UPDATE commands SET enabled=? WHERE channel=? AND name=?',
+                     (new, row['channel'], name))
+        conn.commit()
+    return {'ok': True, 'name': name, 'enabled': bool(new)}
 
 
 @app.route('/settings', methods=['GET', 'POST'])
