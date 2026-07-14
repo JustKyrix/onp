@@ -46,6 +46,9 @@ OSU_ME_URL    = 'https://osu.ppy.sh/api/v2/me'
 DEFAULT_TEMPLATE = ("\U0001F3B6 {artist} - {title} [{diff}] | \u2B50 {sr} "
                     "| AR:{ar} CS:{cs} OD:{od} HP:{hp} | Mods: {mods} | {url}")
 
+DEFAULT_SO_TEMPLATE = ("\U0001F4E2 Go show {name} some love at {link} "
+                       "— they were last streaming {game}!")
+
 # placeholders shown in the UI + used by the live preview
 PLACEHOLDERS = ['artist', 'title', 'diff', 'sr', 'ar', 'cs', 'od', 'hp',
                 'mods', 'bpm', 'creator', 'id', 'url']
@@ -99,6 +102,8 @@ def init_db():
             conn.execute('ALTER TABLE channels ADD COLUMN osu_id TEXT')
         if 'osu_username' not in cols:
             conn.execute('ALTER TABLE channels ADD COLUMN osu_username TEXT')
+        if 'so_template' not in cols:
+            conn.execute('ALTER TABLE channels ADD COLUMN so_template TEXT')
 
         # command system: every command a channel has is a row here
         conn.execute('''
@@ -140,6 +145,8 @@ DEFAULT_COMMANDS = [
     ('8ball',    'fun', '8ball',    None, 1, 'anyone'),
     ('roll',     'fun', 'roll',     None, 1, 'anyone'),
     ('coinflip', 'fun', 'coinflip', None, 1, 'anyone'),
+    ('uptime',   'utility', 'uptime',   None, 1, 'anyone'),
+    ('so',       'utility', 'shoutout', None, 1, 'mods'),
 ]
 
 
@@ -439,7 +446,10 @@ def dashboard():
                     (row['channel'],)).fetchall()
             except sqlite3.OperationalError:
                 skins = []
-    return render_template('dashboard.html', row=row, commands=cmds, skins=skins)
+    return render_template('dashboard.html', row=row,
+                           commands=[c for c in cmds if c['type'] != 'custom'],
+                           custom_commands=[c for c in cmds if c['type'] == 'custom'],
+                           skins=skins, default_so=DEFAULT_SO_TEMPLATE)
 
 
 @app.route('/skins/add', methods=['POST'])
@@ -518,6 +528,77 @@ def command_toggle():
                      (new, row['channel'], name))
         conn.commit()
     return {'ok': True, 'name': name, 'enabled': bool(new)}
+
+
+# names that can't be used for custom commands (built-ins + np)
+RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip', 'uptime', 'so', 'shoutout'}
+import re as _re
+
+
+@app.route('/command/add', methods=['POST'])
+@login_required
+def command_add():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    name = (request.form.get('name') or '').strip().lstrip('!').lower()[:25]
+    response = (request.form.get('response') or '').strip()[:400]
+    permission = request.form.get('permission', 'anyone')
+    if permission not in ('anyone', 'subs', 'mods'):
+        permission = 'anyone'
+
+    if not name or not _re.fullmatch(r'[a-z0-9_]+', name):
+        flash('Command name can only use letters, numbers and underscores.')
+        return redirect(url_for('dashboard') + '#custom')
+    if name in RESERVED_NAMES:
+        flash(f'"!{name}" is a built-in command name — pick another.')
+        return redirect(url_for('dashboard') + '#custom')
+    if not response:
+        flash('A custom command needs a response.')
+        return redirect(url_for('dashboard') + '#custom')
+
+    with db() as conn:
+        exists = conn.execute(
+            'SELECT 1 FROM commands WHERE channel=? AND name=?',
+            (row['channel'], name)).fetchone()
+        if exists:
+            flash(f'You already have a "!{name}" command.')
+            return redirect(url_for('dashboard') + '#custom')
+        conn.execute(
+            'INSERT INTO commands (channel, name, type, kind, response, enabled, permission) '
+            "VALUES (?,?,'custom','text',?,1,?)",
+            (row['channel'], name, response, permission))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#custom')
+
+
+@app.route('/command/so-template', methods=['POST'])
+@login_required
+def so_template_save():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    tpl = (request.form.get('so_template') or '').strip()[:400] or DEFAULT_SO_TEMPLATE
+    with db() as conn:
+        conn.execute('UPDATE channels SET so_template=? WHERE twitch_id=?',
+                     (tpl, session['twitch_id']))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#soopen')
+
+
+@app.route('/command/delete', methods=['POST'])
+@login_required
+def command_delete():
+    row = get_channel(session['twitch_id'])
+    name = (request.form.get('name') or '').strip()
+    if row and name and name not in RESERVED_NAMES:
+        with db() as conn:
+            # only allow deleting custom commands, never built-ins
+            conn.execute(
+                "DELETE FROM commands WHERE channel=? AND name=? AND type='custom'",
+                (row['channel'], name))
+            conn.commit()
+    return redirect(url_for('dashboard') + '#custom')
 
 
 @app.route('/settings', methods=['GET', 'POST'])

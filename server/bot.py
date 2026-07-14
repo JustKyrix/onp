@@ -265,6 +265,30 @@ def osu_user(osu_id):
     }
 
 
+def twitch_stream(token, login):
+    try:
+        d = helix('streams', token, {'user_login': login}).json().get('data', [])
+        return d[0] if d else None
+    except Exception:
+        return None
+
+
+def twitch_user(token, login):
+    try:
+        d = helix('users', token, {'login': login}).json().get('data', [])
+        return d[0] if d else None
+    except Exception:
+        return None
+
+
+def twitch_channel_info(token, bid):
+    try:
+        d = helix('channels', token, {'broadcaster_id': bid}).json().get('data', [])
+        return d[0] if d else None
+    except Exception:
+        return None
+
+
 # ---------- command system (DB-driven) ----------
 def list_commands(channel):
     with db() as conn:
@@ -284,6 +308,16 @@ def list_skins(channel):
                 (channel,)).fetchall()
         except sqlite3.OperationalError:
             return []
+
+
+def get_so_template(channel):
+    with db() as conn:
+        try:
+            row = conn.execute('SELECT so_template FROM channels WHERE channel=?',
+                               (channel,)).fetchone()
+            return row['so_template'] if row else None
+        except sqlite3.OperationalError:
+            return None
 
 
 def get_command(channel, name):
@@ -425,6 +459,46 @@ class Bot(commands.Bot):
                     parts.append(f"{s['title']}: {s['link']}" if s['link'] else s['title'])
                 msg = "🎨 Skins — " + "  |  ".join(parts)
                 await message.channel.send(msg[:490])
+            elif kind == 'uptime':
+                st = twitch_stream(self.tokens['access'], channel)
+                if not st:
+                    await message.channel.send(f"{channel} is offline.")
+                    return
+                from datetime import datetime, timezone
+                started = datetime.fromisoformat(st['started_at'].replace('Z', '+00:00'))
+                secs = int((datetime.now(timezone.utc) - started).total_seconds())
+                h, rem = divmod(secs, 3600)
+                m, s = divmod(rem, 60)
+                dur = []
+                if h:
+                    dur.append(f"{h}h")
+                if m or h:
+                    dur.append(f"{m}m")
+                dur.append(f"{s}s")
+                await message.channel.send(f"⏱️ {channel} has been live for {' '.join(dur)}")
+            elif kind == 'shoutout':
+                if not args:
+                    await message.channel.send("Usage: !so <streamer>")
+                    return
+                target = args[0].lstrip('@').lower()
+                u = twitch_user(self.tokens['access'], target)
+                if not u:
+                    await message.channel.send(f"Couldn't find @{target}.")
+                    return
+                info = twitch_channel_info(self.tokens['access'], u['id'])
+                data = {
+                    'name': '@' + u['display_name'],
+                    'link': f"https://twitch.tv/{u['login']}",
+                    'game': (info.get('game_name') if info else '') or 'something',
+                    'title': (info.get('title') if info else '') or '',
+                }
+                tpl = get_so_template(channel) or (
+                    "📢 Go show {name} some love at {link} — they were last streaming {game}!")
+                try:
+                    out = tpl.format_map(SafeDict(data))
+                except Exception:
+                    out = f"📢 Go show {data['name']} some love at {data['link']}"
+                await message.channel.send(out[:490])
         except Exception as e:
             print(f'dispatch error ({name}):', e)
 

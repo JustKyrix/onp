@@ -354,3 +354,15 @@ kbd { background:var(--ink); border:1px solid var(--line-2); border-block-end-wi
 /* GLOBAL: never center card contents unless explicitly asked.
    .card defaults to flex-column which + Bootstrap can stack/center children. */
 .card { align-items:stretch; text-align:start; }
+
+/* custom command add form */
+.cmd-prefix { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pink); font-size:1.1rem; }
+select.skin-input { cursor:pointer; }
+
+/* placeholder chips (so template editor) */
+.chip {
+  background:var(--panel-2); border:1px solid var(--line-2); color:var(--pink);
+  font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600;
+  padding:var(--space-1) var(--space-3); border-radius:var(--radius-pill); cursor:pointer; transition:.15s;
+}
+.chip:hover { border-color:var(--pink); background:rgb(255 158 196 / .1); }

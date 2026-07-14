@@ -55,6 +55,8 @@
     '8ball':'Magic 8-ball answer',
     'roll':'Random number (1–n)',
     'coinflip':'Heads or tails',
+    'uptime':'How long the stream has been live',
+    'shoutout':'Shout out another streamer (!so name)',
     'text':'Custom text response'
   } %}
   {% set typenames = {'osu':'osu! commands','fun':'Fun','utility':'Utility','custom':'Custom'} %}
@@ -75,6 +77,7 @@
       </div>
       <nav class="dash-nav">
         <button class="dash-navitem active" type="button" data-panel="commands"><i class="bi bi-terminal-fill"></i> Commands</button>
+        <button class="dash-navitem" type="button" data-panel="custom"><i class="bi bi-plus-square"></i> Custom Commands</button>
         <button class="dash-navitem" type="button" data-panel="osu"><i class="bi bi-record-circle"></i> osu! Account</button>
         <button class="dash-navitem" type="button" data-panel="agent"><i class="bi bi-music-note-beamed"></i> Agent</button>
         <button class="dash-navitem" type="button" data-panel="settings"><i class="bi bi-gear-fill"></i> Settings</button>
@@ -110,7 +113,44 @@
             {% set ns.current = c['type'] %}
             <h3 class="cmd-group-title">{{ typenames.get(c['type'], c['type']) }}</h3>
           {% endif %}
-          {% if c['kind'] == 'skin' %}
+          {% if c['kind'] == 'shoutout' %}
+            <div class="cmd-row card p-3 skin-head" onclick="toggleSoMgr(this)" role="button">
+              <div class="d-flex flex-column gap-1 flex-grow-1">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <code class="cmd-code">!{{ c['name'] }}</code>
+                  <span class="who-tag">{{ c['permission'] }}</span>
+                  <i class="bi bi-chevron-down chev skin-chev"></i>
+                </div>
+                <p class="text-muted-soft small-note m-0">{{ labels.get(c['kind'], 'Command') }}</p>
+              </div>
+              <label class="switch" title="Enable / disable" onclick="event.stopPropagation()">
+                <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="skin-mgr card p-4" id="soMgr" hidden>
+              <form method="post" action="{{ url_for('so_template_save') }}" class="d-flex flex-column gap-3">
+                <div class="d-flex flex-column gap-2">
+                  <label class="fw-bold body-sm" for="so-tpl">Shoutout message</label>
+                  <textarea class="skin-input" id="so-tpl" name="so_template" rows="2" maxlength="400" oninput="soPreview()">{{ row['so_template'] or default_so }}</textarea>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                  <span class="fw-bold body-sm">Placeholders <span class="text-muted-soft">(click to insert)</span></span>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="chip" onclick="soInsert('{name}')">{name}</button>
+                    <button type="button" class="chip" onclick="soInsert('{link}')">{link}</button>
+                    <button type="button" class="chip" onclick="soInsert('{game}')">{game}</button>
+                    <button type="button" class="chip" onclick="soInsert('{title}')">{title}</button>
+                  </div>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                  <span class="fw-bold body-sm">Preview</span>
+                  <p class="mono small-note text-muted-soft m-0 text-break" id="soPreviewBox"></p>
+                </div>
+                <button class="primary-button btn-sm align-self-start" type="submit"><i class="bi bi-check-lg"></i> Save message</button>
+              </form>
+            </div>
+          {% elif c['kind'] == 'skin' %}
             <div class="cmd-row card p-3 skin-head" onclick="toggleSkinMgr(this)" role="button">
               <div class="d-flex flex-column gap-1 flex-grow-1">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -171,6 +211,69 @@
             </div>
           {% endif %}
         {% endfor %}
+      </section>
+
+      <!-- CUSTOM COMMANDS -->
+      <section class="dash-panel" data-panel="custom">
+        <div class="panel-head">
+          <h2 class="m-0">Custom Commands</h2>
+          <p class="text-muted-soft m-0">Make your own <code class="cmd-code">!commands</code> — <code class="cmd-code">!discord</code>, <code class="cmd-code">!socials</code>, whatever you like.</p>
+        </div>
+
+        <div class="card p-4 d-flex flex-column gap-3">
+          <h3 class="m-0"><i class="bi bi-plus-circle text-accent"></i> Add a command</h3>
+          <form method="post" action="{{ url_for('command_add') }}" class="d-flex flex-column gap-3">
+            <div class="d-flex flex-column gap-2">
+              <label class="fw-bold body-sm" for="cmd-name">Command name</label>
+              <div class="d-flex align-items-center gap-2">
+                <span class="cmd-prefix">!</span>
+                <input class="skin-input" id="cmd-name" name="name" maxlength="25" placeholder="discord" pattern="[A-Za-z0-9_]+" required>
+              </div>
+              <span class="text-muted-soft small-note">Letters, numbers, underscores. No spaces.</span>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <label class="fw-bold body-sm" for="cmd-response">Response</label>
+              <textarea class="skin-input" id="cmd-response" name="response" rows="2" maxlength="400" placeholder="Join our Discord: https://discord.gg/…" required></textarea>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <label class="fw-bold body-sm" for="cmd-perm">Who can use it</label>
+              <select class="skin-input" id="cmd-perm" name="permission">
+                <option value="anyone">Anyone</option>
+                <option value="subs">Subscribers</option>
+                <option value="mods">Mods only</option>
+              </select>
+            </div>
+            <button class="primary-button btn-sm align-self-start" type="submit"><i class="bi bi-plus-lg"></i> Add command</button>
+          </form>
+        </div>
+
+        {% if custom_commands %}
+          <div class="d-flex flex-column gap-2">
+            {% for c in custom_commands %}
+              <div class="cmd-row card p-3">
+                <div class="d-flex flex-column gap-1 flex-grow-1">
+                  <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <code class="cmd-code">!{{ c['name'] }}</code>
+                    <span class="who-tag">{{ c['permission'] }}</span>
+                  </div>
+                  <p class="text-muted-soft small-note m-0 text-break">{{ c['response'] }}</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <form method="post" action="{{ url_for('command_delete') }}" onsubmit="return confirm('Delete !{{ c['name'] }}?');">
+                    <input type="hidden" name="name" value="{{ c['name'] }}">
+                    <button class="icon-btn" type="submit" title="Delete"><i class="bi bi-trash3"></i></button>
+                  </form>
+                  <label class="switch" title="Enable / disable">
+                    <input type="checkbox" data-cmd="{{ c['name'] }}" {% if c['enabled'] %}checked{% endif %} onchange="toggleCmd(this)">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted-soft">No custom commands yet — add your first above.</p>
+        {% endif %}
       </section>
 
       <!-- osu! ACCOUNT -->
@@ -268,14 +371,48 @@
       mgr.hidden = !mgr.hidden;
       row.classList.toggle('open', !mgr.hidden);
     }
-    // after adding a skin, reopen the manager so the list is visible
+    // open the right thing based on URL hash after a redirect
     window.addEventListener('DOMContentLoaded', function(){
       if(location.hash === '#skinopen'){
+        activatePanel('commands');
         const mgr = document.getElementById('skinMgr');
         const head = document.querySelector('.skin-head');
         if(mgr){ mgr.hidden = false; if(head) head.classList.add('open'); }
+      } else if(location.hash === '#custom'){
+        activatePanel('custom');
+      } else if(location.hash === '#soopen'){
+        activatePanel('commands');
+        const mgr = document.getElementById('soMgr');
+        const head = document.querySelector('#soMgr');
+        const soRow = document.querySelector('[onclick="toggleSoMgr(this)"]');
+        if(mgr){ mgr.hidden = false; if(soRow) soRow.classList.add('open'); soPreview(); }
       }
     });
+    function activatePanel(p){
+      document.querySelectorAll('.dash-navitem').forEach(b=>b.classList.toggle('active', b.dataset.panel===p));
+      document.querySelectorAll('.dash-panel').forEach(s=>s.classList.toggle('active', s.dataset.panel===p));
+    }
+
+    // !so template editor
+    function toggleSoMgr(row){
+      const mgr = document.getElementById('soMgr');
+      mgr.hidden = !mgr.hidden;
+      row.classList.toggle('open', !mgr.hidden);
+      if(!mgr.hidden) soPreview();
+    }
+    function soInsert(ph){
+      const ta = document.getElementById('so-tpl');
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      ta.value = ta.value.slice(0,s) + ph + ta.value.slice(e);
+      ta.focus(); ta.selectionStart = ta.selectionEnd = s + ph.length;
+      soPreview();
+    }
+    function soPreview(){
+      const ta = document.getElementById('so-tpl');
+      const box = document.getElementById('soPreviewBox');
+      const sample = {name:'@Pokimane', link:'https://twitch.tv/pokimane', game:'osu!', title:'ranked grind'};
+      box.textContent = ta.value.replace(/\{(name|link|game|title)\}/g, (m,k)=>sample[k]);
+    }
 
     // token show / copy
     function toggleTok(){
