@@ -161,6 +161,10 @@ DEFAULT_COMMANDS = [
     ('8ball',    'fun', '8ball',    None, 1, 'anyone'),
     ('roll',     'fun', 'roll',     None, 1, 'anyone'),
     ('coinflip', 'fun', 'coinflip', None, 1, 'anyone'),
+    ('duel',     'fun', 'duel',     None, 1, 'anyone'),
+    ('rps',      'fun', 'rps',      None, 1, 'anyone'),
+    ('hug',      'fun', 'hug',      None, 1, 'anyone'),
+    ('pat',      'fun', 'pat',      None, 1, 'anyone'),
     ('uptime',   'utility', 'uptime',   None, 1, 'anyone'),
     ('so',       'utility', 'shoutout', None, 1, 'mods'),
     ('request',  'utility', 'request',  None, 1, 'anyone'),
@@ -559,7 +563,8 @@ def command_toggle():
 
 
 # names that can't be used for custom commands (built-ins + np)
-RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip', 'uptime', 'so', 'shoutout', 'request'}
+RESERVED_NAMES = {'np', 'skin', 'rs', 'recent', 'stats', '8ball', 'roll', 'coinflip',
+                  'uptime', 'so', 'shoutout', 'request', 'duel', 'rps', 'hug', 'pat'}
 import re as _re
 
 

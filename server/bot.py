@@ -399,6 +399,37 @@ EIGHTBALL = [
     "Very doubtful.", "Outlook not so good.",
 ]
 
+DUEL_WINS = [
+    "{w} lands a clean 300 on {l}'s forehead. GG.",
+    "{w} FCs the duel. {l} chokes at 99%.",
+    "{w} sends {l} straight back to the lobby.",
+    "{w} hits every note. {l} missed the first circle.",
+    "{w} wins. {l} blames their tablet area.",
+    "{w} destroys {l} with a single spinner.",
+    "{w} takes it! {l} says the map was overrated anyway.",
+    "{w} snipes {l} by 2pp. Brutal.",
+]
+
+HUGS = [
+    "{a} wraps {b} in the warmest hug \U0001F42C",
+    "{a} gives {b} a big squeezy hug \u2661",
+    "{a} tackles {b} with a hug!",
+    "{a} hugs {b} so tight they nearly drop combo",
+    "{a} offers {b} a comfy hug \U0001F9F8",
+]
+
+PATS = [
+    "{a} pats {b} gently on the head \u2661",
+    "{a} gives {b} some well-deserved headpats",
+    "{a} pat pat pats {b}",
+    "{a} pats {b}. {b} feels better already.",
+    "{a} headpats {b} for that clutch FC",
+]
+
+RPS_EMOJI = {'rock': '\U0001FAA8', 'paper': '\U0001F4C4', 'scissors': '\u2702\uFE0F'}
+RPS_BEATS = {'rock': 'scissors', 'paper': 'rock', 'scissors': 'paper'}
+
+
 
 # ---------- the bot ----------
 class Bot(commands.Bot):
@@ -463,6 +494,38 @@ class Bot(commands.Bot):
                 await message.channel.send(f"🎱 {random.choice(EIGHTBALL)}")
             elif kind == 'coinflip':
                 await message.channel.send(f"🪙 {random.choice(['Heads', 'Tails'])}!")
+            elif kind == 'duel':
+                if not args:
+                    await message.channel.send("Usage: !duel <user>")
+                    return
+                target = args[0].lstrip('@')
+                if target.lower() == author.name.lower():
+                    await message.channel.send(f"{author.name} duels themselves. Somehow, they lose.")
+                    return
+                fighters = [author.name, target]
+                random.shuffle(fighters)
+                w, l = fighters
+                await message.channel.send("⚔️ " + random.choice(DUEL_WINS).format(w=w, l=l))
+            elif kind == 'rps':
+                if not args or args[0].lower() not in RPS_BEATS:
+                    await message.channel.send("Usage: !rps rock | paper | scissors")
+                    return
+                you = args[0].lower()
+                me = random.choice(list(RPS_BEATS))
+                if you == me:
+                    res = "it's a tie!"
+                elif RPS_BEATS[you] == me:
+                    res = f"{author.name} wins!"
+                else:
+                    res = f"{author.name} loses!"
+                await message.channel.send(f"{RPS_EMOJI[you]} vs {RPS_EMOJI[me]} — {res}")
+            elif kind in ('hug', 'pat'):
+                if not args:
+                    await message.channel.send(f"Usage: !{name} <user>")
+                    return
+                target = args[0].lstrip('@')
+                pool = HUGS if kind == 'hug' else PATS
+                await message.channel.send(random.choice(pool).format(a=author.name, b=target))
             elif kind == 'roll':
                 try:
                     hi = int(args[0]) if args else 100
