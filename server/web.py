@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from flask import (Flask, request, redirect, session,
                    render_template, url_for, flash, Response)
 import requests
+import random
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
@@ -167,6 +168,19 @@ def init_db():
                 version    TEXT,
                 stars      TEXT,
                 url        TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        # tournament matches
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS tourney_matches (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel    TEXT NOT NULL,
+                round      TEXT DEFAULT 'Round 1',
+                p1_id      INTEGER,
+                p2_id      INTEGER,
+                winner_id  INTEGER,
+                scheduled  TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -606,11 +620,12 @@ def dashboard():
     tourney = get_tourney(row['channel']) if row else None
     tmaps = list_tourney_maps(row['channel']) if row else []
     tplayers = list_tourney_players(row['channel']) if row else []
+    tmatches = list_tourney_matches(row['channel']) if row else []
     return render_template('dashboard.html', row=row,
                            commands=[c for c in cmds if c['type'] != 'custom'],
                            custom_commands=[c for c in cmds if c['type'] == 'custom'],
                            skins=skins, default_so=DEFAULT_SO_TEMPLATE, requests=reqs,
-                           tourney=tourney, tmaps=tmaps, tplayers=tplayers)
+                           tourney=tourney, tmaps=tmaps, tplayers=tplayers, tmatches=tmatches)
 
 
 @app.route('/skins/add', methods=['POST'])
@@ -829,6 +844,20 @@ def list_tourney_players(channel):
         except sqlite3.OperationalError:
             return []
 
+def list_tourney_matches(channel):
+    with db() as conn:
+        try:
+            return conn.execute('''
+                    SELECT m.id, m.round, m.scheduled, m.winner_id,
+                           m.p1_id, m.p2_id,
+                           p1.osu_username AS p1_name, p2.osu_username AS p2_name
+                           FROM tourney_matches m
+                           LEFT JOIN tourney_players p1 ON p1.id = m.p1_id
+                           LEFT JOIN tourney_players p2 ON p2.id = m.p2_id
+                           WHERE m.channel=? ORDER BY m.scheduled IS NULL, m.scheduled ASC 
+                    ''', (channel,)).fetchall()
+        except sqlite3.OperationalError:
+            return []
 
 @app.route('/tourney/status', methods=['POST'])
 @login_required
@@ -854,6 +883,113 @@ def tourney_player_remove():
             conn.execute('DELETE FROM tourney_players WHERE id=? AND channel=?',
                          (pid, row['channel']))
             conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+
+@app.route('/tourney/match/add', methods=['POST'])
+@login_required
+def tourney_match_add():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    p1 = request.form.get('p1_id')
+    p2 = request.form.get('p2_id')
+    rnd = (request.form.get('round') or 'Round 1').strip()[:40]
+
+    if not p1:
+        flash('Pick at least one player.')
+        return redirect(url_for('dashboard') + '#tourney')
+    if p2 and p1 == p2:
+        flash("A player can't be matched against themselves.")
+        return redirect(url_for('dashboard') + '#tourney')
+    with db() as conn:
+        conn.execute(
+            'INSERT INTO tourney_matches (channel, round, p1_id, p2_id) VALUES (?, ?, ?, ?)',
+            (row['channel'], rnd, p1, p2 or None))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+
+@app.route('/tourney/match/delete', methods=['POST'])
+@login_required
+def tourney_match_delete():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    mid = request.form.get('id')
+    
+    if not mid:
+        flash("Couldn't find that match.")
+        return redirect(url_for('dashboard') + '#tourney')
+    
+    with db() as conn:
+        conn.execute(
+            'DELETE FROM tourney_matches WHERE id=? AND channel=?',
+            (mid, row['channel']))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+    
+@app.route('/tourney/match/schedule', methods=['POST'])
+@login_required
+def tourney_match_schedule():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    mid = request.form.get('id')
+    sched = request.form.get('scheduled') or None
+    if not mid:
+        flash("Couldn't find that match.")
+        return redirect(url_for('dashboard') + '#tourney')
+    
+    with db() as conn:
+        conn.execute(
+            'UPDATE tourney_matches SET scheduled=? WHERE id=? AND channel=?',
+            (sched, mid, row['channel']))
+        conn.commit();
+    return redirect(url_for('dashboard') + '#tourney')
+
+@app.route('/tourney/match/winner', methods=['POST'])
+@login_required
+def tourney_match_winner():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard'))
+    mid = request.form.get('id')
+    winner = request.form.get('winner_id') or None
+
+    if not mid:
+        flash("Couldn't set a winner.")
+        return redirect(url_for('dashboard') + '#tourney')
+
+    with db() as conn:
+        conn.execute(
+            'UPDATE tourney_matches SET winner_id=? WHERE id=? AND channel=?',
+            (winner, mid, row['channel']))
+        conn.commit()
+    return redirect(url_for('dashboard') + '#tourney')
+        
+
+@app.route('/tourney/match/randomize', methods=['POST'])
+@login_required
+def tourney_match_randomize():
+    row = get_channel(session['twitch_id'])
+    if not row:
+        return redirect(url_for('dashboard') + '#tourney')
+    players = [p['id'] for p in list_tourney_players(row['channel'])]
+    if len(players) < 2:
+        flash("You need at least 2 players to randomize.")
+        return redirect(url_for('dashboard') + '#tourney')
+    random.shuffle(players)
+    with db() as conn:
+        conn.execute('DELETE FROM tourney_matches WHERE channel=?', (row['channel'],))
+        for i in range(0, len(players) - 1, 2):
+            conn.execute(
+                'INSERT INTO tourney_matches (channel, p1_id, p2_id) VALUES (?,?,?)',
+                (row['channel'], players[i], players[i + 1]))
+        # odd player out gets a bye: p2_id stays NULL
+        if len(players) % 2:
+            conn.execute(
+                'INSERT INTO tourney_matches (channel, p1_id) VALUES (?,?)',
+                (row['channel'], players[-1]))
+        conn.commit()
     return redirect(url_for('dashboard') + '#tourney')
 
 

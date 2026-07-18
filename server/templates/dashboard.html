@@ -398,6 +398,27 @@
           </form>
         </div>
 
+        <div class="card p-4 d-flex flex-column gap-3">
+          <div class="d-flex flex-column gap-1">
+            <h3 class="m-0"><i class="bi bi-music-note-list text-accent"></i> Add Players</h3>
+            <p class="text-muted-soft small-note m-0">test</p>
+          </div>
+          <form method="post" action="{{ url_for('tourney_match_add') }}">
+            <select name="p1_id">
+              {% for p in tplayers %}
+                <option value="{{ p['id'] }}">{{ p['osu_username'] }}</option>
+              {% endfor %}
+            </select>
+            <select name="p2_id">
+              <option value="">No Opponent</option>
+              {% for p in tplayers %}
+                <option value="{{ p['id'] }}">{{ p['osu_username'] }}</option>
+              {% endfor %}
+            </select>
+            <button class="primary-button btn-sm" type="submit"><i class="bi bi-plus-lg"></i> Add Player</button>
+          </form>
+        </div>
+
         {% if tmaps %}
           <div class="d-flex flex-column gap-2">
             {% for m in tmaps %}
