@@ -891,8 +891,8 @@ def tourney_match_add():
     row = get_channel(session['twitch_id'])
     if not row:
         return redirect(url_for('dashboard'))
-    p1 = request.form.get('p1_id')
-    p2 = request.form.get('p2_id')
+    p1 = request.form.get('p1_id') or None
+    p2 = request.form.get('p2_id') or None
     rnd = (request.form.get('round') or 'Round 1').strip()[:40]
 
     if not p1:
