@@ -84,43 +84,39 @@
 
     <!-- player vs -->
     <h3 class="cmd-group-title">Your Match <span class="pill-tag">{{ players|length }}</span></h3>
-    {% for p in players %}
+    {% if my_match %}
+        {% if me == p2_id %}
           <div class="cmd-row card p-3">
             <div class="d-flex flex-column gap-1 flex-grow-1">
-              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p['osu_id'] }}" target="_blank" rel="noopener">{{ p['osu_username'] }}</a>
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
               <span class="text-muted-soft small-note">
                 {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
                 {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
               </span>
             </div>
           </div>
-        {% endfor %}
-    {% if my_match != p2_name %}
-        <div class="d-flex align-items-center gap-2">
-          <span class="status off"><span class="dot"></span> you're not up against someone yet. Check again later</span>
-        </div>
-      {% elif my_match == p2_name %}
-        <div class="d-flex align-items-center gap-2">
-          <span class="status on"><span class="dot"></span> your oponent is</span>
-          {% for p in players %}
-            <div class="cmd-row card p-3">
-              <div class="d-flex flex-column gap-1 flex-grow-1">
-                <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p['osu_id'] }}" target="_blank" rel="noopener">{{ p['osu_username'] }}</a>
-                <span class="text-muted-soft small-note">
-                  {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
-                  {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
-                </span>
-              </div>
+          <div class="cmd-row card p-3">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p2_id['osu_id'] }}" target="_blank" rel="noopener">{{ p2_id['osu_username'] }}</a>
+              <span class="text-muted-soft small-note">
+                {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
+                {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
+              </span>
             </div>
-          {% endfor %}
-        </div>
-        <p class="text-muted-soft m-0">You're signed up as <strong class="text-accent">{{ me_name }}</strong>. Matchups will show here once the streamer sets them.</p>
-      {% else %}
-        <div class="d-flex align-items-center gap-2">
-          <span class="status on"><span class="dot"></span> signups open</span>
-        </div>
-        <p class="text-muted-soft m-0">Sign in with osu! to join. We only read your username and rank.</p>
-        <a class="primary-button btn-sm" href="{{ url_for('tourney_login', channel=channel) }}"><i class="bi bi-record-circle"></i> Sign in with osu!</a>
+          </div>
+        {% else %}
+          <div class="cmd-row card p-3">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
+              <span class="text-muted-soft small-note">
+                {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
+                {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
+              </span>
+            </div>
+          </div>
+          <p class="text-muted-soft">No opponent yet. Check again later.</p>
+        {% endif %}
+      <p class="text-muted-soft">You're not in a match yet, check back later</p>
       {% endif %}
   </section>
 {% endif %}
