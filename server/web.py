@@ -813,9 +813,16 @@ def tourney_page(channel):
     players = list_tourney_players(channel)
     me_id = session.get('player_osu_id')
     joined = any(p['osu_id'] == me_id for p in players) if me_id else False
+    me = next((p for p in players if p['osu_id'] == me_id), None)
+    my_match = None
+    if me:
+        matches = list_tourney_matches(channel)
+        my_match = next((m for m in matches
+                         if m['p1_id'] == me['id'] or m['p2_id'] == me['id']), None)
     return render_template('tourney.html', channel=channel, tourney=t,
                            tmaps=list_tourney_maps(channel), players=players,
-                           joined=joined, me_name=session.get('player_osu_name'))
+                           joined=joined, me_name=session.get('player_osu_name'),
+                           my_match=my_match)
 
 
 @app.route('/t/<channel>/login')
