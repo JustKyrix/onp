@@ -56,6 +56,10 @@ body {
   background-attachment:fixed;
 }
 
+p {
+  margin: 0;
+}
+
 h1, h2, h3, .font-display { font-family:'Fredoka','Nunito',sans-serif; font-weight:600; line-height:1.14; letter-spacing:-.01em; }
 h2 { font-size:var(--fs-h2); }
 h3 { font-size:var(--fs-h3); }
