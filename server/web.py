@@ -828,7 +828,7 @@ def tourney_page(channel):
     return render_template('tourney.html', channel=channel, tourney=t,
                            tmaps=list_tourney_maps(channel), players=players,
                            joined=joined, me_name=session.get('player_osu_name'),
-                           my_match=my_match, my_opponent=my_opponent)
+                           my_match=my_match, my_opponent=my_opponent, me=me)
 
 
 @app.route('/t/<channel>/login')
