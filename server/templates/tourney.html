@@ -86,7 +86,7 @@
     <h3 class="cmd-group-title">Your Match <span class="pill-tag">{{ players|length }}</span></h3>
       {% if my_match %}
         {% for m in my_match %}
-          {% if m == me %}
+          {% if m == me_id %}
             <div class="cmd-row card p-3">
               <div class="d-flex flex-column gap-1 flex-grow-1">
                 <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ m['osu_id'] }}" target="_blank" rel="noopener">{{ m['osu_id'] }}</a>
