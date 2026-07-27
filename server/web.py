@@ -820,8 +820,7 @@ def tourney_page(channel):
         matches = list_tourney_matches(channel)
         my_match = next((m for m in matches
                          if m['p1_id'] == me['id'] or m['p2_id'] == me['id']), None)
-        my_opponent = next((o for o in matches 
-                            if o['p1_id'] == my_opponent['p1_id'] or o['p2_id'] == my_opponent['p2_id']), None)
+        my_opponent = next((p for p in players if p['osu_id'] == my_opponent), None)
         if my_match:
             if my_match['p1_id'] == me['id']:
                 my_opponent = my_match['p2_id']
