@@ -84,7 +84,7 @@
 
     <!-- player vs -->
     <h3 class="cmd-group-title">Your Match <span class="pill-tag">{{ players|length }}</span></h3>
-      {% if my_match and me %}
+      {% if my_match %}
         <div class="cmd-row card p-3">
           <div class="d-flex flex-column gap-1 flex-grow-1">
             <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
