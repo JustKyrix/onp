@@ -824,9 +824,9 @@ def tourney_page(channel):
                             if o['p1_id'] == my_match['p1_id'] or o['p2_id'] == my_match['p2_id']), None)
         if my_match:
             if my_match['p1_id'] == me['id']:
-                my_opponent = my_match['p2_name']
+                my_opponent = my_match['p2_id']
             else:
-                my_opponent = my_match['p1_name']
+                my_opponent = my_match['p1_id']
     return render_template('tourney.html', channel=channel, tourney=t,
                            tmaps=list_tourney_maps(channel), players=players,
                            joined=joined, me_name=session.get('player_osu_name'),
