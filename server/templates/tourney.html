@@ -85,15 +85,17 @@
     <!-- player vs -->
     <h3 class="cmd-group-title">Your Match <span class="pill-tag">{{ players|length }}</span></h3>
       {% if my_match %}
-        <div class="cmd-row card p-3">
-          <div class="d-flex flex-column gap-1 flex-grow-1">
-            <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me_id['osu_id'] }}" target="_blank" rel="noopener">{{ me_id['osu_id'] }}</a>
-            <span class="text-muted-soft small-note">
-              {% if me_id['rank'] %}#{{ '{:,}'.format(me_id['rank']) }}{% else %}unranked{% endif %}
-              {% if me_id['pp'] %} · {{ '{:,}'.format(me_id['pp']) }}pp{% endif %}
-            </span>
+        {% for m in my_match %}
+          <div class="cmd-row card p-3">
+            <div class="d-flex flex-column gap-1 flex-grow-1">
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ m['osu_id'] }}" target="_blank" rel="noopener">{{ m['osu_id'] }}</a>
+              <span class="text-muted-soft small-note">
+                {% if m['rank'] %}#{{ '{:,}'.format(m['rank']) }}{% else %}unranked{% endif %}
+                {% if m['pp'] %} · {{ '{:,}'.format(m['pp']) }}pp{% endif %}
+              </span>
+            </div>
           </div>
-        </div>
+        {% endfor %}
         {% if my_opponent %}
           <p class="text-muted-soft">VS</p>
           <div class="cmd-row card p-3">
