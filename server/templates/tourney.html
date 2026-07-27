@@ -87,20 +87,20 @@
       {% if my_match %}
         <div class="cmd-row card p-3">
           <div class="d-flex flex-column gap-1 flex-grow-1">
-            <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
+            <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me_id['osu_id'] }}" target="_blank" rel="noopener">{{ me_id['osu_id'] }}</a>
             <span class="text-muted-soft small-note">
-              {% if me['rank'] %}#{{ '{:,}'.format(me['rank']) }}{% else %}unranked{% endif %}
-              {% if me['pp'] %} · {{ '{:,}'.format(me['pp']) }}pp{% endif %}
+              {% if me_id['rank'] %}#{{ '{:,}'.format(me_id['rank']) }}{% else %}unranked{% endif %}
+              {% if me_id['pp'] %} · {{ '{:,}'.format(me_id['pp']) }}pp{% endif %}
             </span>
           </div>
         </div>
-        <!-- {% if my_opponent %}
+        {% if my_opponent %}
           <p class="text-muted-soft">VS</p>
           <div class="cmd-row card p-3">
             <div class="d-flex flex-column gap-1 flex-grow-1">
               <p class="fw-bold">{{ my_opponent }}</p>
             </div>
-          </div> -->
+          </div>
         {% else %}
           <p class="text-muted-soft">No opponent yet. Check again later.</p>
         {% endif %}
