@@ -84,8 +84,8 @@
 
     <!-- player vs -->
     <h3 class="cmd-group-title">Your Match <span class="pill-tag">{{ players|length }}</span></h3>
-    {% if my_match %}
-        {% if me == p2_id %}
+      {% if my_match %}
+        {% if my_opponent['id'] == me['id'] %}
           <div class="cmd-row card p-3">
             <div class="d-flex flex-column gap-1 flex-grow-1">
               <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
@@ -95,25 +95,7 @@
               </span>
             </div>
           </div>
-          <div class="cmd-row card p-3">
-            <div class="d-flex flex-column gap-1 flex-grow-1">
-              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ p2_id['osu_id'] }}" target="_blank" rel="noopener">{{ p2_id['osu_username'] }}</a>
-              <span class="text-muted-soft small-note">
-                {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
-                {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
-              </span>
-            </div>
-          </div>
-        {% elif %}
-          <div class="cmd-row card p-3">
-            <div class="d-flex flex-column gap-1 flex-grow-1">
-              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ me['osu_id'] }}" target="_blank" rel="noopener">{{ me['osu_username'] }}</a>
-              <span class="text-muted-soft small-note">
-                {% if p['rank'] %}#{{ '{:,}'.format(p['rank']) }}{% else %}unranked{% endif %}
-                {% if p['pp'] %} · {{ '{:,}'.format(p['pp']) }}pp{% endif %}
-              </span>
-            </div>
-          </div>
+        {% else %}
           <p class="text-muted-soft">No opponent yet. Check again later.</p>
         {% endif %}
       {% else %}
