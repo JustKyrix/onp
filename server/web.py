@@ -822,9 +822,9 @@ def tourney_page(channel):
                          if m['p1_id'] == me['id'] or m['p2_id'] == me['id']), None)
         if my_match:
             if my_match['p1_id'] == me['id']:
-                my_opponent = my_match['p2_name']
+                my_opponent = next((p for p in players if p['osu_id'] == my_match['p2_name']), None)
             else:
-                my_opponent = my_match['p1_name']
+                my_opponent = next((p for p in players if p['osu_id'] == my_match['p1_name']), None)
     return render_template('tourney.html', channel=channel, tourney=t,
                            tmaps=list_tourney_maps(channel), players=players,
                            joined=joined, me_name=session.get('player_osu_name'),
