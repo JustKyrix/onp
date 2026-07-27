@@ -812,7 +812,7 @@ def tourney_page(channel):
     t = get_tourney(channel)
     players = list_tourney_players(channel)
     me_id = session.get('player_osu_id')
-    opponent_id = session.get('player_osu_id')
+    opponent_id = session.get('osu_id')
     joined = any(p['osu_id'] == me_id for p in players) if me_id else False
     me = next((p for p in players if p['osu_id'] == me_id), None)
     my_match = None
