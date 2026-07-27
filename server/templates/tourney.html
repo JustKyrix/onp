@@ -98,7 +98,11 @@
           <p class="text-muted-soft">VS</p>
           <div class="cmd-row card p-3">
             <div class="d-flex flex-column gap-1 flex-grow-1">
-              <p class="fw-bold">{{ my_opponent['osu_id'] }}</p>
+              <a class="fw-bold skin-line-link" href="https://osu.ppy.sh/users/{{ my_opponent['osu_id'] }}" target="_blank" rel="noopener">{{ my_opponent['osu_username'] }}</a>
+              <span class="text-muted-soft small-note">
+                {% if my_opponent['rank'] %}#{{ '{:,}'.format(my_opponent['rank']) }}{% else %}unranked{% endif %}
+                {% if my_opponent['pp'] %} · {{ '{:,}'.format(my_opponent['pp']) }}pp{% endif %}
+              </span>
             </div>
           </div>
         {% else %}
