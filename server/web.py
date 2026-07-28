@@ -825,11 +825,11 @@ def tourney_page(channel):
                 opp_id = my_match['p2_id']
             else:
                 opp_id = my_match['p1_id']
-            opp_id = next ((p for p in players if p['osu_id'] == opp_id), None)
+            my_opponent = next ((p for p in players if p['osu_id'] == opp_id), None)
     return render_template('tourney.html', channel=channel, tourney=t,
                            tmaps=list_tourney_maps(channel), players=players,
                            joined=joined, me_name=session.get('player_osu_name'),
-                           my_match=my_match, opp_id=my_opponent, me=me)
+                           my_match=my_match, my_opponent=my_opponent, me=me)
 
 
 @app.route('/t/<channel>/login')
